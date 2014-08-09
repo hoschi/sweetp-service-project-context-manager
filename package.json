@@ -1,0 +1,41 @@
+{
+  "name": "sweetp-project-context-manager",
+  "version": "0.1.0",
+  "main": "main.js",
+  "description": "Sweetp service to manage project context.",
+  "homepage": "https://github.com/sweetp/sweetp-project-context-manager",
+  "bugs": "https://github.com/sweetp/sweetp-project-context-manager/issues",
+  "author": {
+    "name": "Stefan Gojan",
+    "email": "vollekannehoschi@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sweetp/sweetp-project-context-manager"
+  },
+  "license": "MIT",
+  "keywords": [
+    "sweetp",
+    "workspace",
+    "issues",
+    "tickets"
+  ],
+  "devDependencies": {
+    "grunt-contrib-jshint": "^0.10.0",
+    "grunt-contrib-watch": "^0.6.1",
+    "load-grunt-tasks": "^0.4.0",
+    "jshint-stylish": "^0.2.0",
+    "grunt-mocha-cov": "~0.2.1",
+    "chai": "~1.9.1"
+  },
+  "dependencies": {
+    "sweetp-base": "~0.6"
+  },
+  "config": {
+    "blanket": {
+      "pattern": [
+        "src"
+      ]
+    }
+  }
+}
