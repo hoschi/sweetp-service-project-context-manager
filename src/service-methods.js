@@ -1,7 +1,7 @@
 var sweetp = require("sweetp-base");
 var service = require("./service");
 
-exports.currentContext = {
+exports.current = {
     options: {
         params: {
             config: sweetp.PARAMETER_TYPES.projectConfig

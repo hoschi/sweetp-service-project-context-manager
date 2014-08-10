@@ -29,7 +29,10 @@
     "chai": "~1.9.1"
   },
   "dependencies": {
-    "sweetp-base": "~0.6"
+    "sweetp-base": "~0.6",
+    "lodash": "~2.4.1",
+    "arangojs": "~1.0.0",
+    "async": "~0.9.0"
   },
   "config": {
     "blanket": {
