@@ -28,3 +28,15 @@ exports.activate = {
     fn: service.activateContext
 };
 
+exports.deactivate = {
+    options: {
+        params: {
+            config: sweetp.PARAMETER_TYPES.projectConfig
+        },
+        description: {
+            summary: "Deactivate the current context."
+        },
+        returns: "Returns an object. Property 'msg' contains always the message. It tells you whether there was no active context or that it deactivated an active context. 'context' property is `undefined` when no context was active or the same object which you get with the `current` method."
+    },
+    fn: service.activateContext
+};
