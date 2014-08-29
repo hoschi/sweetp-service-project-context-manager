@@ -13,3 +13,18 @@ exports.current = {
     },
     fn: service.currentContext
 };
+
+exports.activate = {
+    options: {
+        params: {
+            config: sweetp.PARAMETER_TYPES.projectConfig,
+            name: sweetp.PARAMETER_TYPES.one
+        },
+        description: {
+            summary: "Activate a context by its name. No *other* context should be active!"
+        },
+        returns: "Returns 'sucess' when all went fine."
+    },
+    fn: service.activateContext
+};
+
