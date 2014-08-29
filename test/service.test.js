@@ -89,12 +89,39 @@ describe('Service method to get current context', function() {
         });
     });
 
-    it('should fetch all contexts by default.', function(done) {
+    it('should return undefined when no context is active.', function(done) {
         s.currentContext(null, params, function(err, data) {
             should.not.exist(err);
 			should.equal(data, undefined);
             done();
         });
-
     });
+
+	it('should return information about the active context when there is one.', function (done) {
+		s.activateContext(null, _.assign({name:'my-context'}, params), function (err, data) {
+            should.not.exist(err);
+			data.should.equal('success');
+
+			s.currentContext(null, params, function(err, data) {
+				should.not.exist(err);
+				data.isActive.should.equal(true);
+				data.projectName.should.equal('test');
+				data.name.should.equal('my-context');
+				done();
+			});
+		});
+	});
+
+    it('should return undefined after deactivating current context.', function(done) {
+		s.deactivateContext(null, params, function (err, data) {
+            should.not.exist(err);
+			data.msg.should.equal("Context deactivated.");
+			s.currentContext(null, params, function(err, data) {
+				should.not.exist(err);
+				should.equal(data, undefined);
+				done();
+			});
+		});
+    });
+
 });
