@@ -1,13 +1,24 @@
 var arango = require('arangojs');
 var async = require('async');
 var _ = require('lodash');
+var nconf = require('nconf');
+
+nconf.env().argv();
+nconf.defaults({
+	dbConnection:'http://localhost:8529/sweetp'
+});
+exports.nconf = nconf;
 
 exports.getDb = function () {
+	var connection;
+
 	if (exports._db) {
 		return exports._db;
 	}
 
-	exports._db = arango.Connection('http://localhost:8529/sweetp-dev');
+	connection = nconf.get('dbConnection');
+	console.log("db connection:", connection);
+	exports._db = arango.Connection(connection);
 	return exports._db;
 };
 
@@ -130,7 +141,12 @@ exports.currentContext = function (err, params, callback) {
 	projectName = params.config.name;
 
 	exports.getContexts(projectName, undefined, true, function (err, result) {
+		var context;
 		if (err) { return callback(err); }
-		callback(null, _.first(result));
+		context = _.first(result);
+		if (!context) {
+			return callback(null, 'no active context');
+		}
+		callback(null, context);
 	});
 };

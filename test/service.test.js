@@ -2,12 +2,25 @@ var should = require('chai').should();
 var _ = require('lodash');
 
 var s = require('../src/service');
+// override defaults
+s.nconf.defaults({
+	dbConnection:'http://localhost:8529/sweetp-unittest'
+});
 
 var baseParams = {
 	config: {
 		name: 'test'
 	}
 };
+
+describe('DB connection', function () {
+    var params;
+	params = _.cloneDeep(baseParams);
+
+	it.only('can be overriden.', function () {
+		s.nconf.get('dbConnection').should.equal('http://localhost:8529/sweetp-unittest');
+	});
+});
 
 describe('Service method to activate a context', function () {
     var params;

@@ -1,5 +1,9 @@
 Sweetp service to manage project context.
 
+# Configuration
+
+Configure DB by command line switch, e.g. `--dbConnection http://myotherhost:1234/sweetp-database`.
+
 # Development
 
 You want to clone and link

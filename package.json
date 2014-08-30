@@ -32,7 +32,8 @@
     "sweetp-base": "~0.6",
     "lodash": "~2.4.1",
     "arangojs": "~1.0.0",
-    "async": "~0.9.0"
+    "async": "~0.9.0",
+    "nconf": "~0.6.9"
   },
   "config": {
     "blanket": {
