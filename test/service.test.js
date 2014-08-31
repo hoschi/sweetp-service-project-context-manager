@@ -11,111 +11,113 @@ testDbName = 'sweetpUnittest';
 testDbUrl = 'http://localhost:8529/';
 // override defaults
 nconfDefaults = {
-	dbConnection:testDbUrl + testDbName
+    dbConnection: testDbUrl + testDbName
 };
 s.nconf.defaults(nconfDefaults);
 
 baseParams = {
-	config: {
-		name: 'test'
-	}
+    config: {
+        name: 'test'
+    }
 };
 
-before(function (done) {
-	var db;
-	// recreate db
+before(function(done) {
+    var db;
+    // recreate db
 
-	db = arango.Connection(testDbUrl);
-	db.database.delete(testDbName, function(err, response) {
-		// can't delete not existing db
-		if (err && response.code !== 404) {
-			throw new Error(response.errorMessage);
-		}
+    db = arango.Connection(testDbUrl);
+    db.database.delete(testDbName, function(err, response) {
+        // can't delete not existing db
+        if (err && response.code !== 404) {
+            throw new Error(response.errorMessage);
+        }
 
-		db.database.create(testDbName, [{username:'test'}], function(err, response) {
-			if (err) {
-				throw new Error(response.errorMessage);
-			}
+        db.database.create(testDbName, [{
+            username: 'test'
+        }], function(err, response) {
+            if (err) {
+                throw new Error(response.errorMessage);
+            }
 
-			done();
-		});
-	});
+            done();
+        });
+    });
 });
 
-describe('DB connection', function () {
+describe('DB connection', function() {
     var params, setNotExistingDb;
-	params = _.cloneDeep(baseParams);
+    params = _.cloneDeep(baseParams);
 
-	setNotExistingDb = function () {
-		s.nconf.defaults({
-			dbConnection:'http://localhost:8529/should-not-exist'
-		});
-	};
+    setNotExistingDb = function() {
+        s.nconf.defaults({
+            dbConnection: 'http://localhost:8529/should-not-exist'
+        });
+    };
 
-	beforeEach(function () {
-		sinon.stub(console, "error", function () {});
-	});
+    beforeEach(function() {
+        sinon.stub(console, "error", function() {});
+    });
 
-	afterEach(function () {
-		console.error.restore();
-	});
+    afterEach(function() {
+        console.error.restore();
+    });
 
-	it('string can be overriden.', function () {
-		s.nconf.get('dbConnection').should.equal('http://localhost:8529/sweetpUnittest');
-	});
+    it('string can be overriden.', function() {
+        s.nconf.get('dbConnection').should.equal('http://localhost:8529/sweetpUnittest');
+    });
 
-	it('should not fail with not existing DB.', function (done) {
-		var db;
-		setNotExistingDb();
+    it('should not fail with not existing DB.', function(done) {
+        var db;
+        setNotExistingDb();
 
-		db = s.getDb(function(err) {
-			db.should.be.a('object');
-			err.message.should.match(/database not found/);
+        db = s.getDb(function(err) {
+            db.should.be.a('object');
+            err.message.should.match(/database not found/);
 
-			s.nconf.defaults(nconfDefaults);
-			delete s._db;
-			done();
-		});
-	});
+            s.nconf.defaults(nconfDefaults);
+            delete s._db;
+            done();
+        });
+    });
 
-	it('should not fail with not existing DB and no callback for error handling.', function () {
-		var db;
-		setNotExistingDb();
+    it('should not fail with not existing DB and no callback for error handling.', function() {
+        var db;
+        setNotExistingDb();
 
-		db = s.getDb();
-		db.should.be.a('object');
-		s.nconf.defaults(nconfDefaults);
-		delete s._db;
-	});
+        db = s.getDb();
+        db.should.be.a('object');
+        s.nconf.defaults(nconfDefaults);
+        delete s._db;
+    });
 
-	it('should create collection if it not exists.', function (done) {
-		s.getDb(function(err, message) {
-			if (err) {
-				throw err;
-			}
+    it('should create collection if it not exists.', function(done) {
+        s.getDb(function(err, message) {
+            if (err) {
+                throw err;
+            }
 
-			message.should.equal("Collection created.");
-			delete s._db;
-			done();
-		});
-	});
+            message.should.equal("Collection created.");
+            delete s._db;
+            done();
+        });
+    });
 
-	it('should not create collection when it exist.', function (done) {
-		s.getDb(function(err, message) {
-			if (err) {
-				throw err;
-			}
+    it('should not create collection when it exist.', function(done) {
+        s.getDb(function(err, message) {
+            if (err) {
+                throw err;
+            }
 
-			message.should.equal("All fine.");
-			delete s._db;
-			done();
-		});
-	});
+            message.should.equal("All fine.");
+            delete s._db;
+            done();
+        });
+    });
 });
 
-describe('Service method to activate a context', function () {
+describe('Service method to activate a context', function() {
     var params;
-	params = _.cloneDeep(baseParams);
+    params = _.cloneDeep(baseParams);
 
     it("doesn't handle errors.", function(done) {
         s.activateContext(true, undefined, function(err) {
@@ -124,67 +126,73 @@ describe('Service method to activate a context', function () {
         });
     });
 
-	it('should fail without context name.', function (done) {
+    it('should fail without context name.', function(done) {
         s.activateContext(null, params, function(err) {
-			err.message.should.equal("Can't activate context without a name for it.");
+            err.message.should.equal("Can't activate context without a name for it.");
             done();
         });
-	});
+    });
 
-	it('should return "success" when all went fine.', function (done) {
-		s.activateContext(null, _.assign({name:'my-context'}, params), function (err, data) {
+    it('should return "success" when all went fine.', function(done) {
+        s.activateContext(null, _.assign({
+            name: 'my-context'
+        }, params), function(err, data) {
             should.not.exist(err);
-			data.should.equal('success');
-			done();
-		});
-	});
+            data.should.equal('success');
+            done();
+        });
+    });
 
-	it('should return "success" when contex is already active.', function (done) {
-		s.activateContext(null, _.assign({name:'my-context'}, params), function (err, data) {
+    it('should return "success" when contex is already active.', function(done) {
+        s.activateContext(null, _.assign({
+            name: 'my-context'
+        }, params), function(err, data) {
             should.not.exist(err);
-			data.should.equal('success');
-			done();
-		});
-	});
+            data.should.equal('success');
+            done();
+        });
+    });
 
-	it('should throw error when another context is active.', function (done) {
-		s.activateContext(null, _.assign({name:'my-context-2'}, params), function (err) {
-			err.message.should.equal("Active context detected! You must deactivate it, before activating another context.");
-			done();
-		});
-	});
+    it('should throw error when another context is active.', function(done) {
+        s.activateContext(null, _.assign({
+            name: 'my-context-2'
+        }, params), function(err) {
+            err.message.should.equal("Active context detected! You must deactivate it, before activating another context.");
+            done();
+        });
+    });
 
 });
 
-describe('Service method to deactivate a context', function () {
+describe('Service method to deactivate a context', function() {
     var params;
-	params = _.cloneDeep(baseParams);
+    params = _.cloneDeep(baseParams);
 
-	it('should return deactivated context.', function (done) {
-		s.deactivateContext(null, params, function (err, data) {
+    it('should return deactivated context.', function(done) {
+        s.deactivateContext(null, params, function(err, data) {
             should.not.exist(err);
-			data.msg.should.equal("Context deactivated.");
-			data.context.isActive.should.equal(false);
-			data.context.projectName.should.equal('test');
-			data.context.name.should.equal('my-context');
-			done();
-		});
-	});
+            data.msg.should.equal("Context deactivated.");
+            data.context.isActive.should.equal(false);
+            data.context.projectName.should.equal('test');
+            data.context.name.should.equal('my-context');
+            done();
+        });
+    });
 
-	it('should return only message when there was no context to deactivate.', function (done) {
-		s.deactivateContext(null, params, function (err, data) {
+    it('should return only message when there was no context to deactivate.', function(done) {
+        s.deactivateContext(null, params, function(err, data) {
             should.not.exist(err);
-			data.msg.should.equal("No active context.");
+            data.msg.should.equal("No active context.");
             should.not.exist(data.context);
-			done();
-		});
-	});
+            done();
+        });
+    });
 
 });
 
 describe('Service method to get current context', function() {
     var params;
-	params = _.cloneDeep(baseParams);
+    params = _.cloneDeep(baseParams);
 
     it("doesn't handle errors.", function(done) {
         s.currentContext(true, undefined, function(err) {
@@ -196,36 +204,38 @@ describe('Service method to get current context', function() {
     it('should return message when no context is active.', function(done) {
         s.currentContext(null, params, function(err, data) {
             should.not.exist(err);
-			should.equal(data, "no active context");
+            should.equal(data, "no active context");
             done();
         });
     });
 
-	it('should return information about the active context when there is one.', function (done) {
-		s.activateContext(null, _.assign({name:'my-context'}, params), function (err, data) {
+    it('should return information about the active context when there is one.', function(done) {
+        s.activateContext(null, _.assign({
+            name: 'my-context'
+        }, params), function(err, data) {
             should.not.exist(err);
-			data.should.equal('success');
+            data.should.equal('success');
 
-			s.currentContext(null, params, function(err, data) {
-				should.not.exist(err);
-				data.isActive.should.equal(true);
-				data.projectName.should.equal('test');
-				data.name.should.equal('my-context');
-				done();
-			});
-		});
-	});
+            s.currentContext(null, params, function(err, data) {
+                should.not.exist(err);
+                data.isActive.should.equal(true);
+                data.projectName.should.equal('test');
+                data.name.should.equal('my-context');
+                done();
+            });
+        });
+    });
 
     it('should return message after deactivating current context.', function(done) {
-		s.deactivateContext(null, params, function (err, data) {
+        s.deactivateContext(null, params, function(err, data) {
             should.not.exist(err);
-			data.msg.should.equal("Context deactivated.");
-			s.currentContext(null, params, function(err, data) {
-				should.not.exist(err);
-				should.equal(data, "no active context");
-				done();
-			});
-		});
+            data.msg.should.equal("Context deactivated.");
+            s.currentContext(null, params, function(err, data) {
+                should.not.exist(err);
+                should.equal(data, "no active context");
+                done();
+            });
+        });
     });
 
 });
