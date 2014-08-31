@@ -26,7 +26,8 @@
     "load-grunt-tasks": "^0.4.0",
     "jshint-stylish": "^0.2.0",
     "grunt-mocha-cov": "~0.2.1",
-    "chai": "~1.9.1"
+    "chai": "~1.9.1",
+    "sinon": "~1.10.3"
   },
   "dependencies": {
     "sweetp-base": "~0.6",

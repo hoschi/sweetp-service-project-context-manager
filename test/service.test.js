@@ -1,24 +1,115 @@
 var should = require('chai').should();
 var _ = require('lodash');
+var arango = require('arangojs');
+var sinon = require('sinon');
 
 var s = require('../src/service');
-// override defaults
-s.nconf.defaults({
-	dbConnection:'http://localhost:8529/sweetp-unittest'
-});
 
-var baseParams = {
+var testDbUrl, testDbName, nconfDefaults, baseParams;
+
+testDbName = 'sweetpUnittest';
+testDbUrl = 'http://localhost:8529/';
+// override defaults
+nconfDefaults = {
+	dbConnection:testDbUrl + testDbName
+};
+s.nconf.defaults(nconfDefaults);
+
+baseParams = {
 	config: {
 		name: 'test'
 	}
 };
 
+before(function (done) {
+	var db;
+	// recreate db
+
+	db = arango.Connection(testDbUrl);
+	db.database.delete(testDbName, function(err, response) {
+		// can't delete not existing db
+		if (err && response.code !== 404) {
+			throw new Error(response.errorMessage);
+		}
+
+		db.database.create(testDbName, [{username:'test'}], function(err, response) {
+			if (err) {
+				throw new Error(response.errorMessage);
+			}
+
+			done();
+		});
+	});
+});
+
 describe('DB connection', function () {
-    var params;
+    var params, setNotExistingDb;
 	params = _.cloneDeep(baseParams);
 
-	it.only('can be overriden.', function () {
-		s.nconf.get('dbConnection').should.equal('http://localhost:8529/sweetp-unittest');
+	setNotExistingDb = function () {
+		s.nconf.defaults({
+			dbConnection:'http://localhost:8529/should-not-exist'
+		});
+	};
+
+	beforeEach(function () {
+		sinon.stub(console, "error", function () {});
+	});
+
+	afterEach(function () {
+		console.error.restore();
+	});
+
+	it('string can be overriden.', function () {
+		s.nconf.get('dbConnection').should.equal('http://localhost:8529/sweetpUnittest');
+	});
+
+	it('should not fail with not existing DB.', function (done) {
+		var db;
+		setNotExistingDb();
+
+		db = s.getDb(function(err) {
+			db.should.be.a('object');
+			err.message.should.match(/database not found/);
+
+			s.nconf.defaults(nconfDefaults);
+			delete s._db;
+			done();
+		});
+	});
+
+	it('should not fail with not existing DB and no callback for error handling.', function () {
+		var db;
+		setNotExistingDb();
+
+		db = s.getDb();
+		db.should.be.a('object');
+		s.nconf.defaults(nconfDefaults);
+		delete s._db;
+	});
+
+	it('should create collection if it not exists.', function (done) {
+		s.getDb(function(err, message) {
+			if (err) {
+				throw err;
+			}
+
+			message.should.equal("Collection created.");
+			delete s._db;
+			done();
+		});
+	});
+
+	it('should not create collection when it exist.', function (done) {
+		s.getDb(function(err, message) {
+			if (err) {
+				throw err;
+			}
+
+			message.should.equal("All fine.");
+			delete s._db;
+			done();
+		});
 	});
 });
 

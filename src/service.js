@@ -3,22 +3,70 @@ var async = require('async');
 var _ = require('lodash');
 var nconf = require('nconf');
 
+// setup configuration hierarchy: environment, args, defaults
 nconf.env().argv();
 nconf.defaults({
 	dbConnection:'http://localhost:8529/sweetp'
 });
 exports.nconf = nconf;
 
-exports.getDb = function () {
-	var connection;
+// module variables
+var contextsCollectionName;
+contextsCollectionName = 'projectContexts';
+
+function getErrorFromResponse (err, response) {
+	if (response.error) {
+		return new Error([response.code, response.errorNum, response.errorMessage].join(' '));
+	} else if (err) {
+		return new Error('Response callback error: ' + err.toString());
+	} else {
+		return null;
+	}
+}
+
+exports.getDb = function (callback) {
+	var connection, db;
 
 	if (exports._db) {
 		return exports._db;
 	}
 
 	connection = nconf.get('dbConnection');
-	console.log("db connection:", connection);
-	exports._db = arango.Connection(connection);
+	db = arango.Connection(connection);
+
+	// check one times if DB and collection exists
+
+	async.waterfall([function (next) {
+		db.database.current(next);
+	}, function (response, opaque, next) {
+		db.collection.list(true, next);
+	}, function (response, opaque, next) {
+		var found;
+
+		found = response.collections.some(function (collection) {
+			return collection && collection.name === contextsCollectionName;
+		});
+
+		if (found) {
+			next(null, "All fine.");
+		} else {
+			db.collection.create(contextsCollectionName, function (err, response) {
+				next(getErrorFromResponse(err, response), "Collection created.");
+			});
+		}
+	}
+	], function (err, response) {
+		err = getErrorFromResponse(err, response);
+
+		if (err) {
+			console.error(err);
+			if (callback) { return callback(err); }
+		}
+
+		if (callback) { return callback(null, response); }
+	});
+
+	exports._db = db;
 	return exports._db;
 };
 
@@ -38,10 +86,13 @@ exports.getContexts = function (projectName, name, isActive, callback) {
 		env.isActive = isActive;
 	}
 
-	exports.getDb().query.for('context').in('projectContexts')
+	exports.getDb().query.for('context').in(contextsCollectionName)
 		.filter(filter)
 		.return('context')
 		.exec(env, function (err, response) {
+			if (response.error) {
+				return callback(new Error([response.code, response.errorNum, response.errorMessage].join(' ')));
+			}
 			if (err) { return callback(err); }
 			callback(null, response.result);
 		});
@@ -119,7 +170,7 @@ exports.activateContext = function (err, params, callback) {
 				});
 			} else {
 				// create
-				exports.getDb().document.create('projectContexts', {
+				exports.getDb().document.create(contextsCollectionName, {
 					projectName:projectName,
 					name:name,
 					isActive:true
