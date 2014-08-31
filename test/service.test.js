@@ -193,10 +193,10 @@ describe('Service method to get current context', function() {
         });
     });
 
-    it('should return undefined when no context is active.', function(done) {
+    it('should return message when no context is active.', function(done) {
         s.currentContext(null, params, function(err, data) {
             should.not.exist(err);
-			should.equal(data, undefined);
+			should.equal(data, "no active context");
             done();
         });
     });
@@ -216,13 +216,13 @@ describe('Service method to get current context', function() {
 		});
 	});
 
-    it('should return undefined after deactivating current context.', function(done) {
+    it('should return message after deactivating current context.', function(done) {
 		s.deactivateContext(null, params, function (err, data) {
             should.not.exist(err);
 			data.msg.should.equal("Context deactivated.");
 			s.currentContext(null, params, function(err, data) {
 				should.not.exist(err);
-				should.equal(data, undefined);
+				should.equal(data, "no active context");
 				done();
 			});
 		});

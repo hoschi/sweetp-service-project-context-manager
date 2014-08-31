@@ -107,7 +107,7 @@ exports.deactivateContext = function (err, params, serviceMethodCallback) {
 
 	async.waterfall([
 		function (callback) {
-			exports.currentContext(null, params, callback);
+			exports._currentContext(null, params, callback);
 		},
 		function (context, callback) {
 			if (context) {
@@ -147,7 +147,7 @@ exports.activateContext = function (err, params, callback) {
 
 	async.waterfall([
 		function (next) {
-			exports.currentContext(null, params, next);
+			exports._currentContext(null, params, next);
 		},
 		function (context, next) {
 			if (context && context.name !== name) {
@@ -184,7 +184,7 @@ exports.activateContext = function (err, params, callback) {
 
 };
 
-exports.currentContext = function (err, params, callback) {
+exports._currentContext = function (err, params, callback) {
 	var projectName;
 
     if (err) { return callback(err); }
@@ -195,6 +195,15 @@ exports.currentContext = function (err, params, callback) {
 		var context;
 		if (err) { return callback(err); }
 		context = _.first(result);
+		callback(null, context);
+	});
+};
+
+exports.currentContext = function (err, params, callback) {
+	exports._currentContext(err, params, function (err, context) {
+		if (err) { return callback(err); }
+
+		// can't return 'undefined' to sweetp
 		if (!context) {
 			return callback(null, 'no active context');
 		}
