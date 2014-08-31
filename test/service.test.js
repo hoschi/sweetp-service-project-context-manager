@@ -44,6 +44,12 @@ before(function(done) {
     });
 });
 
+describe('Response error helper', function() {
+    it('should handle also normal errors.', function() {
+        s._getErrorFromResponse("my error").message.should.match(/my error/);
+    });
+});
+
 describe('DB connection', function() {
     var params, setNotExistingDb;
     params = _.cloneDeep(baseParams);
@@ -167,6 +173,13 @@ describe('Service method to activate a context', function() {
 describe('Service method to deactivate a context', function() {
     var params;
     params = _.cloneDeep(baseParams);
+
+    it("doesn't handle errors.", function(done) {
+        s.deactivateContext(true, undefined, function(err) {
+            err.should.equal(true);
+            done();
+        });
+    });
 
     it('should return deactivated context.', function(done) {
         s.deactivateContext(null, params, function(err, data) {

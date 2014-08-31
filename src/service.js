@@ -14,15 +14,15 @@ exports.nconf = nconf;
 var contextsCollectionName;
 contextsCollectionName = 'projectContexts';
 
-function getErrorFromResponse(err, response) {
-    if (response.error) {
+exports._getErrorFromResponse = function(err, response) {
+    if (response && response.error) {
         return new Error([response.code, response.errorNum, response.errorMessage].join(' '));
     } else if (err) {
         return new Error('Response callback error: ' + err.toString());
     } else {
         return null;
     }
-}
+};
 
 exports.getDb = function(callback) {
     var connection, db;
@@ -37,6 +37,7 @@ exports.getDb = function(callback) {
     // check one times if DB and collection exists
 
     async.waterfall([
+
         function(next) {
             db.database.current(next);
         },
@@ -54,12 +55,12 @@ exports.getDb = function(callback) {
                 next(null, "All fine.");
             } else {
                 db.collection.create(contextsCollectionName, function(err, response) {
-                    next(getErrorFromResponse(err, response), "Collection created.");
+                    next(exports._getErrorFromResponse(err, response), "Collection created.");
                 });
             }
         }
     ], function(err, response) {
-        err = getErrorFromResponse(err, response);
+        err = exports._getErrorFromResponse(err, response);
 
         if (err) {
             console.error(err);
@@ -100,13 +101,7 @@ exports.getContexts = function(projectName, name, isActive, callback) {
         .filter(filter)
         .return('context')
         .exec(env, function(err, response) {
-            if (response.error) {
-                return callback(new Error([response.code, response.errorNum, response.errorMessage].join(' ')));
-            }
-            if (err) {
-                return callback(err);
-            }
-            callback(null, response.result);
+            callback(exports._getErrorFromResponse(err, response), response.result);
         });
 };
 
@@ -131,10 +126,7 @@ exports.deactivateContext = function(err, params, serviceMethodCallback) {
                 exports.getDb().document.patch(context._id, {
                     isActive: context.isActive
                 }, function(err) {
-                    if (err) {
-                        return callback(err);
-                    }
-                    callback(null, {
+                    callback(err, {
                         msg: "Context deactivated.",
                         context: context
                     });
@@ -174,11 +166,9 @@ exports.activateContext = function(err, params, callback) {
                 return next(new Error("Active context detected! You must deactivate it, before activating another context."));
             }
 
+            // fetch context
             exports.getContexts(projectName, name, undefined, function(err, result) {
-                if (err) {
-                    return next(err);
-                }
-                next(null, _.first(result));
+                next(err, _.first(result));
             });
         },
         function(context, next) {
@@ -187,10 +177,7 @@ exports.activateContext = function(err, params, callback) {
                 exports.getDb().document.patch(context._id, {
                     isActive: true
                 }, function(err) {
-                    if (err) {
-                        return next(err);
-                    }
-                    next(null, 'success');
+                    next(err, 'success');
                 });
             } else {
                 // create
@@ -199,10 +186,7 @@ exports.activateContext = function(err, params, callback) {
                     name: name,
                     isActive: true
                 }, function(err) {
-                    if (err) {
-                        return next(err);
-                    }
-                    next(null, 'success');
+                    next(err, 'success');
                 });
             }
         }
@@ -221,11 +205,8 @@ exports._currentContext = function(err, params, callback) {
 
     exports.getContexts(projectName, undefined, true, function(err, result) {
         var context;
-        if (err) {
-            return callback(err);
-        }
         context = _.first(result);
-        callback(null, context);
+        callback(err, context);
     });
 };
 
