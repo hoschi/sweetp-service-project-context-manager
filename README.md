@@ -8,6 +8,7 @@ You have to create the DB in your ArangoDB server named `sweetp` or configure an
 
 Configure DB by command line switch, e.g. `--dbConnection http://myotherhost:1234/sweetp-database`.
 
+
 # Development
 
 You want to clone and link
@@ -16,5 +17,5 @@ instead of the npm version to see assertion errors in the tests.
 
 # License
 
-Copyright (c) 2014 Stefan Gojan
+Copyright (c) 2014 Stefan Gojan.
 Licensed under the MIT license.
