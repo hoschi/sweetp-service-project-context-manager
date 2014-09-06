@@ -27,7 +27,8 @@
     "jshint-stylish": "^0.2.0",
     "grunt-mocha-cov": "~0.2.1",
     "chai": "~1.9.1",
-    "sinon": "~1.10.3"
+    "sinon": "~1.10.3",
+    "grunt-codeclimate": "0.0.1-1"
   },
   "dependencies": {
     "sweetp-base": "~0.6",

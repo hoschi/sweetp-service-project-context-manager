@@ -23,21 +23,34 @@ module.exports = function(grunt) {
                 src: ['test/**/*.js']
             }
         },
+        codeclimate: {
+            options: {
+                file: 'reports/coverage.lcov',
+                token: 'adac2edae0766916a6fbb11fc84ac4bb5d7c356486d3b7a8dc42b7ba23a2dff0'
+            }
+        },
         mochacov: {
             options: {
-				files: '<%= jshint.test.src %>'
+                files: '<%= jshint.test.src %>'
             },
-            unit:{
-				options:{
-					reporter: 'dot'
-				}
-			},
-            coverage:{
-				options:{
-					reporter: 'html-cov',
-					output: 'reports/coverage.html'
-				}
-			}
+            unit: {
+                options: {
+                    reporter: 'dot'
+                }
+            },
+            coverage: {
+                options: {
+                    reporter: 'html-cov',
+                    output: 'reports/coverage.html'
+                }
+            },
+            lcov: {
+                options: {
+                    instrument:true,
+                    reporter: 'mocha-lcov-reporter',
+                    output: 'reports/coverage.lcov'
+                }
+            }
         },
         watch: {
             gruntfile: {
@@ -50,15 +63,15 @@ module.exports = function(grunt) {
             },
             test: {
                 files: [
-					'<%= jshint.src.src %>',
-					'<%= jshint.test.src %>'
-				],
+                    '<%= jshint.src.src %>',
+                    '<%= jshint.test.src %>'
+                ],
                 tasks: ['jshint', 'mochacov:unit']
             }
         }
     });
 
-    // Default task.
-	grunt.registerTask('test', ['mochacov:unit']);
+    grunt.registerTask('codec', ['mochacov:lcov', 'codeclimate']);
+    grunt.registerTask('test', ['mochacov:unit']);
     grunt.registerTask('default', ['jshint', 'test']);
 };
