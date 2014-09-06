@@ -1,3 +1,5 @@
+[![Code Climate](https://codeclimate.com/github/hoschi/sweetp-service-project-context-manager/badges/gpa.svg)](https://codeclimate.com/github/hoschi/sweetp-service-project-context-manager) [![Test Coverage](https://codeclimate.com/github/hoschi/sweetp-service-project-context-manager/badges/coverage.svg)](https://codeclimate.com/github/hoschi/sweetp-service-project-context-manager)
+
 Sweetp service to manage project context.
 
 # Usage
