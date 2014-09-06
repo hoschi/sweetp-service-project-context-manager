@@ -46,7 +46,7 @@ module.exports = function(grunt) {
             },
             lcov: {
                 options: {
-                    instrument:true,
+                    instrument: true,
                     reporter: 'mocha-lcov-reporter',
                     output: 'reports/coverage.lcov'
                 }
