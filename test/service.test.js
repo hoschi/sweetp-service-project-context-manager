@@ -2,6 +2,8 @@ var should = require('chai').should();
 var _ = require('lodash');
 var arango = require('arangojs');
 var sinon = require('sinon');
+var nock = require('nock');
+var url = require('url');
 
 var s = require('../src/service');
 
@@ -16,32 +18,34 @@ nconfDefaults = {
 s.nconf.defaults(nconfDefaults);
 
 baseParams = {
+    url: 'http://localhost:1234/',
     config: {
         name: 'test'
     }
 };
 
+// TODO enable
 before(function(done) {
-    var db;
-    // recreate db
+	var db;
+	// recreate db
 
-    db = arango.Connection(testDbUrl);
-    db.database.delete(testDbName, function(err, response) {
-        // can't delete not existing db
-        if (err && response.code !== 404) {
-            throw new Error(response.errorMessage);
-        }
+	db = arango.Connection(testDbUrl);
+	db.database.delete(testDbName, function(err, response) {
+		// can't delete not existing db
+		if (err && response.code !== 404) {
+			throw new Error(response.errorMessage);
+		}
 
-        db.database.create(testDbName, [{
-            username: 'test'
-        }], function(err, response) {
-            if (err) {
-                throw new Error(response.errorMessage);
-            }
+		db.database.create(testDbName, [{
+			username: 'test'
+		}], function(err, response) {
+			if (err) {
+				throw new Error(response.errorMessage);
+			}
 
-            done();
-        });
-    });
+			done();
+		});
+	});
 });
 
 describe('Response error helper', function() {
@@ -155,6 +159,126 @@ describe('Service method to activate a context', function() {
         }, params), function(err, data) {
             should.not.exist(err);
             data.should.equal('success');
+            done();
+        });
+    });
+
+    it('should call all services which are configured to run on activation.', function(done) {
+        var services, mockScopes, myParams;
+
+		// services to call
+        services = [
+            'testservice/task1',
+            'testservice/task2'
+        ];
+        mockScopes = [];
+
+		// create mock for each service (call)
+        services.forEach(function(serviceName) {
+            var scope;
+            scope = nock(params.url)
+				.filteringPath(function (path) {
+					// mock stringified context to short version
+					var parsed, context, shortContext;
+
+					parsed = url.parse(path, true);
+					context = JSON.parse(parsed.query.context);
+
+					if (!context || !context.name) {
+						return path;
+					}
+
+					shortContext = "context={name:" +context.name + "}";
+					return parsed.pathname + "?" + shortContext;
+				})
+                .get('/services/' + params.config.name + '/' + serviceName + '?context={name:my-context}')
+                .reply(200, {
+                    service: serviceName + " reply"
+                });
+            mockScopes.push(scope);
+        });
+
+        myParams = _.cloneDeep(params);
+        myParams.config.projectContextManager = {
+            onActivate: services
+        };
+
+        s.activateContext(null, _.assign({
+            name: 'my-context'
+        }, myParams), function(err, data) {
+            should.not.exist(err);
+			// TODO it should response with message + list with successfull called services
+            data.should.equal('success');
+
+            // check for pending mocks
+            mockScopes.forEach(function(scope) {
+                scope.isDone().should.equal(true);
+            });
+            done();
+        });
+    });
+
+    it('should abort calling services on first failed service.', function(done) {
+        var services, mockScopes, myParams;
+
+		// services to call
+        services = [
+            'testservice/task1',
+            'testservice/task2',
+            'testservice/task3'
+        ];
+        mockScopes = [];
+
+		// create mock for each service (call)
+        services.forEach(function(serviceName, index) {
+            var scope;
+            scope = nock(params.url)
+				.filteringPath(function (path) {
+					// mock stringified context to short version
+					var parsed, context, shortContext;
+
+					parsed = url.parse(path, true);
+					context = JSON.parse(parsed.query.context);
+
+					if (!context || !context.name) {
+						return path;
+					}
+
+					shortContext = "context={name:" +context.name + "}";
+					return parsed.pathname + "?" + shortContext;
+				})
+                .get('/services/' + params.config.name + '/' + serviceName + '?context={name:my-context}');
+
+			if (index === 1) {
+				scope.reply(500, {
+				    service: "wahhhh"
+				});
+			} else {
+				scope.reply(200, {
+				    service: serviceName + " reply"
+				});
+			}
+
+            mockScopes.push(scope);
+        });
+
+        myParams = _.cloneDeep(params);
+        myParams.config.projectContextManager = {
+            onActivate: services
+        };
+
+        s.activateContext(null, _.assign({
+            name: 'my-context'
+        }, myParams), function(err) {
+			// TODO it should response with message + list with successfull called services, this way the user knows what actions already done
+			err.should.match(/wahhhh/);
+
+            // check for pending mocks
+            mockScopes.forEach(function(scope) {
+				if (scope.isDone) {
+					scope.isDone().should.equal(true);
+				}
+            });
             done();
         });
     });

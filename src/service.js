@@ -2,6 +2,8 @@ var arango = require('arangojs');
 var async = require('async');
 var _ = require('lodash');
 var nconf = require('nconf');
+var sweetp = require('sweetp-base');
+var leet = require('l33teral');
 
 // setup configuration hierarchy: environment, args, defaults
 nconf.env().argv();
@@ -14,6 +16,40 @@ exports.nconf = nconf;
 var contextsCollectionName;
 contextsCollectionName = 'projectContexts';
 
+// private helpers
+function mapWith(fn) {
+    return function(list) {
+		return _.map(list, fn);
+    };
+}
+
+function callServices(serviceNames, url, project, context, callback) {
+    var params, callServicesFor;
+
+    if (!serviceNames || serviceNames.length <= 0) {
+        return callback(null);
+    }
+
+    params = {
+        context: JSON.stringify(context)
+    };
+
+	// create service calls from map
+    callServicesFor = mapWith(function(service) {
+        // call service specified with context, use next service call as callback
+        return function(next) {
+            sweetp.callService(url, project, service, params, false, function(err) {
+                // ignore result from service call, pass only errors
+                next(err);
+            });
+        };
+    });
+
+    // call each service one after the other
+    async.waterfall(callServicesFor(serviceNames), callback);
+}
+
+// module
 exports._getErrorFromResponse = function(err, response) {
     if (response && response.error) {
         return new Error([response.code, response.errorNum, response.errorMessage].join(' '));
@@ -143,7 +179,7 @@ exports.deactivateContext = function(err, params, serviceMethodCallback) {
 };
 
 exports.activateContext = function(err, params, callback) {
-    var projectName, name;
+    var projectName, name, callServicesOnFinish, paramsLeet;
 
     if (err) {
         return callback(err);
@@ -151,6 +187,9 @@ exports.activateContext = function(err, params, callback) {
 
     projectName = params.config.name;
     name = params.name;
+    paramsLeet = leet(params);
+
+    callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onActivate', null), params.url, projectName);
 
     if (!name) {
         return callback(new Error("Can't activate context without a name for it."));
@@ -177,18 +216,24 @@ exports.activateContext = function(err, params, callback) {
                 exports.getDb().document.patch(context._id, {
                     isActive: true
                 }, function(err) {
-                    next(err, 'success');
+                    next(err, context);
                 });
             } else {
                 // create
-                exports.getDb().document.create(contextsCollectionName, {
+                context = {
                     projectName: projectName,
                     name: name,
                     isActive: true
-                }, function(err) {
-                    next(err, 'success');
+                };
+                exports.getDb().document.create(contextsCollectionName, context, function(err) {
+                    next(err, context);
                 });
             }
+        },
+        function(context, next) {
+            callServicesOnFinish(context, function(err) {
+                next(err, 'success');
+            });
         }
     ], callback);
 

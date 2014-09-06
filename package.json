@@ -28,14 +28,16 @@
     "grunt-mocha-cov": "~0.2.1",
     "chai": "~1.9.1",
     "sinon": "~1.10.3",
-    "grunt-codeclimate": "0.0.1-1"
+    "grunt-codeclimate": "0.0.1-1",
+    "nock": "~0.46.0"
   },
   "dependencies": {
     "sweetp-base": "~0.6",
     "lodash": "~2.4.1",
     "arangojs": "~1.0.0",
     "async": "~0.9.0",
-    "nconf": "~0.6.9"
+    "nconf": "~0.6.9",
+    "l33teral": "~2.0.4"
   },
   "config": {
     "blanket": {

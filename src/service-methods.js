@@ -17,6 +17,7 @@ exports.current = {
 exports.activate = {
     options: {
         params: {
+            url: sweetp.PARAMETER_TYPES.url,
             config: sweetp.PARAMETER_TYPES.projectConfig,
             name: sweetp.PARAMETER_TYPES.one
         },
@@ -31,6 +32,7 @@ exports.activate = {
 exports.deactivate = {
     options: {
         params: {
+            url: sweetp.PARAMETER_TYPES.url,
             config: sweetp.PARAMETER_TYPES.projectConfig
         },
         description: {
