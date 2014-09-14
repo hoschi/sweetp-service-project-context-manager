@@ -9,7 +9,7 @@ exports.current = {
         description: {
             summary: "Get details about the current context."
         },
-        returns: "Context information object or undefined when there is no active context."
+        returns: "Context information object or a message when there is no active context."
     },
     fn: service.currentContext
 };
