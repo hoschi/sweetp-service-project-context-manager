@@ -19,12 +19,12 @@ contextsCollectionName = 'projectContexts';
 // private helpers
 function mapWith(fn) {
     return function(list) {
-		return _.map(list, fn);
+        return _.map(list, fn);
     };
 }
 
 function callServices(serviceNames, url, project, context, callback) {
-    var params, callServicesFor;
+    var params, callServicesFor, serviceCalls;
 
     if (!serviceNames || serviceNames.length <= 0) {
         return callback(null);
@@ -34,19 +34,41 @@ function callServices(serviceNames, url, project, context, callback) {
         context: JSON.stringify(context)
     };
 
-	// create service calls from map
+    // create service calls from map with service names
     callServicesFor = mapWith(function(service) {
         // call service specified with context, use next service call as callback
-        return function(next) {
-            sweetp.callService(url, project, service, params, false, function(err) {
-                // ignore result from service call, pass only errors
-                next(err);
+        return function(serviceHandlerResponses, next) {
+            if (!serviceHandlerResponses) {
+                serviceHandlerResponses = [];
+            }
+
+            sweetp.callService(url, project, service, params, false, function(err, response) {
+                serviceHandlerResponses.push(response);
+                next(err, serviceHandlerResponses);
             });
         };
     });
 
+    serviceCalls = [];
+
+    // initialize servicer responses
+    serviceCalls.push(function(next) {
+        next(null, []);
+    });
+
+    // create service calls from map
+    serviceCalls = serviceCalls.concat(callServicesFor(serviceNames));
+
     // call each service one after the other
-    async.waterfall(callServicesFor(serviceNames), callback);
+    async.waterfall(serviceCalls, function(err, serviceHandlerResponses) {
+        if (err) {
+            // add successfull service responses also to list, this way the
+            // user knows what service calls worked already
+            err = new Error(JSON.stringify(serviceHandlerResponses) + "\n" + err);
+        }
+
+        return callback(err, serviceHandlerResponses);
+    });
 }
 
 // module
@@ -231,8 +253,11 @@ exports.activateContext = function(err, params, callback) {
             }
         },
         function(context, next) {
-            callServicesOnFinish(context, function(err) {
-                next(err, 'success');
+            callServicesOnFinish(context, function(err, serviceHandlerResponses) {
+                next(err, {
+                    msg: 'success',
+                    serviceHandlerResponses: serviceHandlerResponses
+                });
             });
         }
     ], callback);

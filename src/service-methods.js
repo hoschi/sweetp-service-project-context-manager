@@ -22,9 +22,12 @@ exports.activate = {
             name: sweetp.PARAMETER_TYPES.one
         },
         description: {
-            summary: "Activate a context by its name. No *other* context should be active!"
+            summary: "Activate a context by its name. No *other* context should be active!",
+			config:[
+				"(onActivate String[]): service names to call when activating a context, each service call gets one parameter 'context' with the stringified JSON of the context."
+			]
         },
-        returns: "Returns 'sucess' when all went fine."
+        returns: "Returns {msg:'success', (serviceHandlerResponses:[/*messages of service resplies */ ])}  when all went fine."
     },
     fn: service.activateContext
 };

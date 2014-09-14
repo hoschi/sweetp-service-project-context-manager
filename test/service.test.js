@@ -24,28 +24,27 @@ baseParams = {
     }
 };
 
-// TODO enable
 before(function(done) {
-	var db;
-	// recreate db
+    var db;
+    // recreate db
 
-	db = arango.Connection(testDbUrl);
-	db.database.delete(testDbName, function(err, response) {
-		// can't delete not existing db
-		if (err && response.code !== 404) {
-			throw new Error(response.errorMessage);
-		}
+    db = arango.Connection(testDbUrl);
+    db.database.delete(testDbName, function(err, response) {
+        // can't delete not existing db
+        if (err && response.code !== 404) {
+            throw new Error(response.errorMessage);
+        }
 
-		db.database.create(testDbName, [{
-			username: 'test'
-		}], function(err, response) {
-			if (err) {
-				throw new Error(response.errorMessage);
-			}
+        db.database.create(testDbName, [{
+            username: 'test'
+        }], function(err, response) {
+            if (err) {
+                throw new Error(response.errorMessage);
+            }
 
-			done();
-		});
-	});
+            done();
+        });
+    });
 });
 
 describe('Response error helper', function() {
@@ -148,7 +147,8 @@ describe('Service method to activate a context', function() {
             name: 'my-context'
         }, params), function(err, data) {
             should.not.exist(err);
-            data.should.equal('success');
+            data.msg.should.equal('success');
+            should.not.exist(data.serviceHandlerResponses);
             done();
         });
     });
@@ -158,7 +158,8 @@ describe('Service method to activate a context', function() {
             name: 'my-context'
         }, params), function(err, data) {
             should.not.exist(err);
-            data.should.equal('success');
+            data.msg.should.equal('success');
+            should.not.exist(data.serviceHandlerResponses);
             done();
         });
     });
@@ -166,31 +167,31 @@ describe('Service method to activate a context', function() {
     it('should call all services which are configured to run on activation.', function(done) {
         var services, mockScopes, myParams;
 
-		// services to call
+        // services to call
         services = [
             'testservice/task1',
             'testservice/task2'
         ];
         mockScopes = [];
 
-		// create mock for each service (call)
+        // create mock for each service (call)
         services.forEach(function(serviceName) {
             var scope;
             scope = nock(params.url)
-				.filteringPath(function (path) {
-					// mock stringified context to short version
-					var parsed, context, shortContext;
+                .filteringPath(function(path) {
+                    // mock stringified context to short version
+                    var parsed, context, shortContext;
 
-					parsed = url.parse(path, true);
-					context = JSON.parse(parsed.query.context);
+                    parsed = url.parse(path, true);
+                    context = JSON.parse(parsed.query.context);
 
-					if (!context || !context.name) {
-						return path;
-					}
+                    if (!context || !context.name) {
+                        return path;
+                    }
 
-					shortContext = "context={name:" +context.name + "}";
-					return parsed.pathname + "?" + shortContext;
-				})
+                    shortContext = "context={name:" + context.name + "}";
+                    return parsed.pathname + "?" + shortContext;
+                })
                 .get('/services/' + params.config.name + '/' + serviceName + '?context={name:my-context}')
                 .reply(200, {
                     service: serviceName + " reply"
@@ -207,8 +208,11 @@ describe('Service method to activate a context', function() {
             name: 'my-context'
         }, myParams), function(err, data) {
             should.not.exist(err);
-			// TODO it should response with message + list with successfull called services
-            data.should.equal('success');
+
+            data.msg.should.equal('success');
+            data.serviceHandlerResponses.should.have.length(2);
+            data.serviceHandlerResponses[0].should.equal("testservice/task1 reply");
+            data.serviceHandlerResponses[1].should.equal("testservice/task2 reply");
 
             // check for pending mocks
             mockScopes.forEach(function(scope) {
@@ -221,7 +225,7 @@ describe('Service method to activate a context', function() {
     it('should abort calling services on first failed service.', function(done) {
         var services, mockScopes, myParams;
 
-		// services to call
+        // services to call
         services = [
             'testservice/task1',
             'testservice/task2',
@@ -229,35 +233,35 @@ describe('Service method to activate a context', function() {
         ];
         mockScopes = [];
 
-		// create mock for each service (call)
+        // create mock for each service (call)
         services.forEach(function(serviceName, index) {
             var scope;
             scope = nock(params.url)
-				.filteringPath(function (path) {
-					// mock stringified context to short version
-					var parsed, context, shortContext;
+                .filteringPath(function(path) {
+                    // mock stringified context to short version
+                    var parsed, context, shortContext;
 
-					parsed = url.parse(path, true);
-					context = JSON.parse(parsed.query.context);
+                    parsed = url.parse(path, true);
+                    context = JSON.parse(parsed.query.context);
 
-					if (!context || !context.name) {
-						return path;
-					}
+                    if (!context || !context.name) {
+                        return path;
+                    }
 
-					shortContext = "context={name:" +context.name + "}";
-					return parsed.pathname + "?" + shortContext;
-				})
+                    shortContext = "context={name:" + context.name + "}";
+                    return parsed.pathname + "?" + shortContext;
+                })
                 .get('/services/' + params.config.name + '/' + serviceName + '?context={name:my-context}');
 
-			if (index === 1) {
-				scope.reply(500, {
-				    service: "wahhhh"
-				});
-			} else {
-				scope.reply(200, {
-				    service: serviceName + " reply"
-				});
-			}
+            if (index === 1) {
+                scope.reply(500, {
+                    service: "wahhhh"
+                });
+            } else {
+                scope.reply(200, {
+                    service: serviceName + " reply"
+                });
+            }
 
             mockScopes.push(scope);
         });
@@ -270,14 +274,15 @@ describe('Service method to activate a context', function() {
         s.activateContext(null, _.assign({
             name: 'my-context'
         }, myParams), function(err) {
-			// TODO it should response with message + list with successfull called services, this way the user knows what actions already done
-			err.should.match(/wahhhh/);
+            err.should.match(/wahhhh/);
+            err.should.match(/task1 reply/);
+            err.should.not.match(/task3 reply/);
 
             // check for pending mocks
             mockScopes.forEach(function(scope) {
-				if (scope.isDone) {
-					scope.isDone().should.equal(true);
-				}
+                if (scope.isDone) {
+                    scope.isDone().should.equal(true);
+                }
             });
             done();
         });
@@ -351,7 +356,8 @@ describe('Service method to get current context', function() {
             name: 'my-context'
         }, params), function(err, data) {
             should.not.exist(err);
-            data.should.equal('success');
+            data.msg.should.equal('success');
+            should.not.exist(data.serviceHandlerResponses);
 
             s.currentContext(null, params, function(err, data) {
                 should.not.exist(err);
