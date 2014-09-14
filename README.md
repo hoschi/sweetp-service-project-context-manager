@@ -13,9 +13,11 @@ Configure DB by command line switch, e.g. `--dbConnection http://myotherhost:123
 
 # Development
 
+Create DB 'sweetpUnittest' for tests.
+
 You want to clone and link
 [branch 2.2 of arango client](https://github.com/triAGENS/ArangoDB-JavaScript/commits/2.2)
-instead of the npm version to see assertion errors in the tests.
+instead of the npm version to see assertion errors in tests.
 
 # License
 

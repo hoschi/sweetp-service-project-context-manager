@@ -2,6 +2,8 @@ var arango = require('arangojs');
 var async = require('async');
 var _ = require('lodash');
 var nconf = require('nconf');
+var sweetp = require('sweetp-base');
+var leet = require('l33teral');
 
 // setup configuration hierarchy: environment, args, defaults
 nconf.env().argv();
@@ -14,6 +16,58 @@ exports.nconf = nconf;
 var contextsCollectionName;
 contextsCollectionName = 'projectContexts';
 
+// private helpers
+function mapWith(fn) {
+    return function(list) {
+        return _.map(list, fn);
+    };
+}
+
+function callServices(serviceNames, url, project, context, callback) {
+    var params, callServicesFor, serviceCalls;
+
+    if (!serviceNames || serviceNames.length <= 0) {
+        return callback(null);
+    }
+
+    params = {
+        context: JSON.stringify(context)
+    };
+
+    // create service calls from map with service names
+    callServicesFor = mapWith(function(service) {
+        // call service specified with context, use next service call as callback
+        return function(serviceHandlerResponses, next) {
+            sweetp.callService(url, project, service, params, false, function(err, response) {
+                serviceHandlerResponses.push(response);
+                next(err, serviceHandlerResponses);
+            });
+        };
+    });
+
+    serviceCalls = [];
+
+    // initialize servicer responses
+    serviceCalls.push(function(next) {
+        next(null, []);
+    });
+
+    // create service calls from map
+    serviceCalls = serviceCalls.concat(callServicesFor(serviceNames));
+
+    // call each service one after the other
+    async.waterfall(serviceCalls, function(err, serviceHandlerResponses) {
+        if (err) {
+            // add successfull service responses also to list, this way the
+            // user knows what service calls worked already
+            err = new Error(JSON.stringify(serviceHandlerResponses) + "\n" + err);
+        }
+
+        return callback(err, serviceHandlerResponses);
+    });
+}
+
+// module
 exports._getErrorFromResponse = function(err, response) {
     if (response && response.error) {
         return new Error([response.code, response.errorNum, response.errorMessage].join(' '));
@@ -105,45 +159,58 @@ exports.getContexts = function(projectName, name, isActive, callback) {
         });
 };
 
-exports.deactivateContext = function(err, params, serviceMethodCallback) {
-    var projectName;
+exports.deactivateContext = function(err, params, callback) {
+    var projectName, paramsLeet, callServicesOnFinish;
 
     if (err) {
-        return serviceMethodCallback(err);
+        return callback(err);
     }
 
     projectName = params.config.name;
+    paramsLeet = leet(params);
+
+    callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onDeactivate', null), params.url, projectName);
 
     async.waterfall([
 
-        function(callback) {
-            exports._currentContext(null, params, callback);
+        function(next) {
+            exports._currentContext(null, params, next);
         },
-        function(context, callback) {
+        function(context, next) {
             if (context) {
                 // update
                 context.isActive = false;
                 exports.getDb().document.patch(context._id, {
                     isActive: context.isActive
                 }, function(err) {
-                    callback(err, {
-                        msg: "Context deactivated.",
-                        context: context
-                    });
+                    next(err, context);
                 });
             } else {
+                next(null, null);
+            }
+        },
+        function(context, next) {
+            if (!context) {
                 // no active context found
-                callback(null, {
+                return next(null, {
                     msg: "No active context."
                 });
             }
+
+            callServicesOnFinish(context, function(err, serviceHandlerResponses) {
+                return next(err, {
+                    msg: "Context deactivated.",
+                    context: context,
+                    serviceHandlerResponses: serviceHandlerResponses
+                });
+            });
         }
-    ], serviceMethodCallback);
+    ], callback);
 
 };
 
 exports.activateContext = function(err, params, callback) {
-    var projectName, name;
+    var projectName, name, callServicesOnFinish, paramsLeet;
 
     if (err) {
         return callback(err);
@@ -151,6 +218,9 @@ exports.activateContext = function(err, params, callback) {
 
     projectName = params.config.name;
     name = params.name;
+    paramsLeet = leet(params);
+
+    callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onActivate', null), params.url, projectName);
 
     if (!name) {
         return callback(new Error("Can't activate context without a name for it."));
@@ -177,18 +247,27 @@ exports.activateContext = function(err, params, callback) {
                 exports.getDb().document.patch(context._id, {
                     isActive: true
                 }, function(err) {
-                    next(err, 'success');
+                    next(err, context);
                 });
             } else {
                 // create
-                exports.getDb().document.create(contextsCollectionName, {
+                context = {
                     projectName: projectName,
                     name: name,
                     isActive: true
-                }, function(err) {
-                    next(err, 'success');
+                };
+                exports.getDb().document.create(contextsCollectionName, context, function(err) {
+                    next(err, context);
                 });
             }
+        },
+        function(context, next) {
+            callServicesOnFinish(context, function(err, serviceHandlerResponses) {
+                next(err, {
+                    msg: 'success',
+                    serviceHandlerResponses: serviceHandlerResponses
+                });
+            });
         }
     ], callback);
 
