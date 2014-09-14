@@ -317,6 +317,7 @@ describe('Service method to deactivate a context', function() {
             data.context.isActive.should.equal(false);
             data.context.projectName.should.equal('test');
             data.context.name.should.equal('my-context');
+            should.not.exist(data.serviceHandlerResponses);
             done();
         });
     });
@@ -326,10 +327,171 @@ describe('Service method to deactivate a context', function() {
             should.not.exist(err);
             data.msg.should.equal("No active context.");
             should.not.exist(data.context);
+            should.not.exist(data.serviceHandlerResponses);
             done();
         });
     });
 
+    it('should not call services when there was no context to deactivate.', function(done) {
+        var services, myParams;
+
+        // services to call
+        services = [
+            'testservice/task1',
+            'testservice/task2'
+        ];
+
+        myParams = _.cloneDeep(params);
+        myParams.config.projectContextManager = {
+            onDeactivate: services
+        };
+
+        s.deactivateContext(null, params, function(err, data) {
+            should.not.exist(err);
+            data.msg.should.equal("No active context.");
+            should.not.exist(data.context);
+            should.not.exist(data.serviceHandlerResponses);
+            done();
+        });
+    });
+
+    it('should call all services which are configured to run on deactivation.', function(done) {
+        // activate context to have one to deactivate
+        s.activateContext(null, _.assign({
+            name: 'my-context'
+        }, params), function(err, data) {
+            var services, mockScopes, myParams;
+
+            should.not.exist(err);
+            data.msg.should.equal('success');
+            should.not.exist(data.serviceHandlerResponses);
+
+            // services to call
+            services = [
+                'testservice/task1',
+                'testservice/task2'
+            ];
+            mockScopes = [];
+
+            // create mock for each service (call)
+            services.forEach(function(serviceName) {
+                var scope;
+                scope = nock(params.url)
+                    .filteringPath(function(path) {
+                        // mock stringified context to short version
+                        var parsed, context, shortContext;
+
+                        parsed = url.parse(path, true);
+                        context = JSON.parse(parsed.query.context);
+
+                        if (!context || !context.name) {
+                            return path;
+                        }
+
+                        shortContext = "context={name:" + context.name + "}";
+                        return parsed.pathname + "?" + shortContext;
+                    })
+                    .get('/services/' + params.config.name + '/' + serviceName + '?context={name:my-context}')
+                    .reply(200, {
+                        service: serviceName + " reply"
+                    });
+                mockScopes.push(scope);
+            });
+
+            myParams = _.cloneDeep(params);
+            myParams.config.projectContextManager = {
+                onDeactivate: services
+            };
+
+            s.deactivateContext(null, myParams, function(err, data) {
+                should.not.exist(err);
+
+                data.msg.should.equal("Context deactivated.");
+                data.serviceHandlerResponses.should.have.length(2);
+                data.serviceHandlerResponses[0].should.equal("testservice/task1 reply");
+                data.serviceHandlerResponses[1].should.equal("testservice/task2 reply");
+
+                // check for pending mocks
+                mockScopes.forEach(function(scope) {
+                    scope.isDone().should.equal(true);
+                });
+                done();
+            });
+        });
+    });
+
+    it('should abort calling services on first failed service.', function(done) {
+        // activate context to have one to deactivate
+        s.activateContext(null, _.assign({
+            name: 'my-context'
+        }, params), function(err, data) {
+            var services, mockScopes, myParams;
+
+            should.not.exist(err);
+            data.msg.should.equal('success');
+            should.not.exist(data.serviceHandlerResponses);
+
+            // services to call
+            services = [
+                'testservice/task1',
+                'testservice/task2',
+                'testservice/task3'
+            ];
+            mockScopes = [];
+
+            // create mock for each service (call)
+            services.forEach(function(serviceName, index) {
+                var scope;
+                scope = nock(params.url)
+                    .filteringPath(function(path) {
+                        // mock stringified context to short version
+                        var parsed, context, shortContext;
+
+                        parsed = url.parse(path, true);
+                        context = JSON.parse(parsed.query.context);
+
+                        if (!context || !context.name) {
+                            return path;
+                        }
+
+                        shortContext = "context={name:" + context.name + "}";
+                        return parsed.pathname + "?" + shortContext;
+                    })
+                    .get('/services/' + params.config.name + '/' + serviceName + '?context={name:my-context}');
+
+                if (index === 1) {
+                    scope.reply(500, {
+                        service: "wahhhh"
+                    });
+                } else {
+                    scope.reply(200, {
+                        service: serviceName + " reply"
+                    });
+                }
+
+                mockScopes.push(scope);
+            });
+
+            myParams = _.cloneDeep(params);
+            myParams.config.projectContextManager = {
+                onDeactivate: services
+            };
+
+            s.deactivateContext(null, myParams, function(err) {
+                err.should.match(/wahhhh/);
+                err.should.match(/task1 reply/);
+                err.should.not.match(/task3 reply/);
+
+                // check for pending mocks
+                mockScopes.forEach(function(scope) {
+                    if (scope.isDone) {
+                        scope.isDone().should.equal(true);
+                    }
+                });
+                done();
+            });
+        });
+    });
 });
 
 describe('Service method to get current context', function() {

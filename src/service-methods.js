@@ -39,9 +39,12 @@ exports.deactivate = {
             config: sweetp.PARAMETER_TYPES.projectConfig
         },
         description: {
-            summary: "Deactivate the current context."
+            summary: "Deactivate the current context.",
+			config:[
+				"(onDeactivate String[]): service names to call when deactivating a context, each service call gets one parameter 'context' with the stringified JSON of the context to deactivate."
+			]
         },
-        returns: "Returns an object. Property 'msg' contains always the message. It tells you whether there was no active context or that it deactivated an active context. 'context' property is `undefined` when no context was active or the same object which you get with the `current` method."
+        returns: "Returns an object. Property 'msg' contains always the message. It tells you whether there was no active context or that it deactivated an active context. 'context' property is `undefined` when no context was active or the same object which you get with the `current` method. `serviceHandlerResponses` are filled with responses of called services when 'onDeactivate' handlers are defined."
     },
     fn: service.activateContext
 };

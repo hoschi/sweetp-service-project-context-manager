@@ -163,40 +163,53 @@ exports.getContexts = function(projectName, name, isActive, callback) {
         });
 };
 
-exports.deactivateContext = function(err, params, serviceMethodCallback) {
-    var projectName;
+exports.deactivateContext = function(err, params, callback) {
+    var projectName, paramsLeet, callServicesOnFinish;
 
     if (err) {
-        return serviceMethodCallback(err);
+        return callback(err);
     }
 
     projectName = params.config.name;
+    paramsLeet = leet(params);
+
+    callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onDeactivate', null), params.url, projectName);
 
     async.waterfall([
 
-        function(callback) {
-            exports._currentContext(null, params, callback);
+        function(next) {
+            exports._currentContext(null, params, next);
         },
-        function(context, callback) {
+        function(context, next) {
             if (context) {
                 // update
                 context.isActive = false;
                 exports.getDb().document.patch(context._id, {
                     isActive: context.isActive
                 }, function(err) {
-                    callback(err, {
-                        msg: "Context deactivated.",
-                        context: context
-                    });
+                    next(err, context);
                 });
             } else {
+                next(null, null);
+            }
+        },
+        function(context, next) {
+            if (!context) {
                 // no active context found
-                callback(null, {
+                return next(null, {
                     msg: "No active context."
                 });
             }
+
+            callServicesOnFinish(context, function(err, serviceHandlerResponses) {
+                return next(err, {
+                    msg: "Context deactivated.",
+                    context: context,
+                    serviceHandlerResponses: serviceHandlerResponses
+                });
+            });
         }
-    ], serviceMethodCallback);
+    ], callback);
 
 };
 
