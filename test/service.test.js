@@ -24,6 +24,61 @@ baseParams = {
     }
 };
 
+function mockServiceCallWithContext (params, serviceName) {
+	return nock(params.url)
+			.filteringPath(function(path) {
+				// mock stringified context to short version
+				var parsed, context, shortContext;
+
+				parsed = url.parse(path, true);
+				context = JSON.parse(parsed.query.context);
+
+				if (!context || !context.name) {
+					return path;
+				}
+
+				shortContext = "context={name:" + context.name + "}";
+				return parsed.pathname + "?" + shortContext;
+			})
+			.get('/services/' + params.config.name + '/' + serviceName + '?context={name:my-context}')
+			.reply(200, {
+				service: serviceName + " reply"
+			});
+}
+
+function mockServiceCallWithContextAndFail (params, serviceName, failAt, index) {
+	var scope;
+
+	scope = nock(params.url)
+		.filteringPath(function(path) {
+			// mock stringified context to short version
+			var parsed, context, shortContext;
+
+			parsed = url.parse(path, true);
+			context = JSON.parse(parsed.query.context);
+
+			if (!context || !context.name) {
+				return path;
+			}
+
+			shortContext = "context={name:" + context.name + "}";
+			return parsed.pathname + "?" + shortContext;
+		})
+		.get('/services/' + params.config.name + '/' + serviceName + '?context={name:my-context}');
+
+	if (index === failAt) {
+		scope.reply(500, {
+			service: "wahhhh"
+		});
+	} else {
+		scope.reply(200, {
+			service: serviceName + " reply"
+		});
+	}
+
+	return scope;
+}
+
 before(function(done) {
     var db;
     // recreate db
@@ -177,25 +232,7 @@ describe('Service method to activate a context', function() {
         // create mock for each service (call)
         services.forEach(function(serviceName) {
             var scope;
-            scope = nock(params.url)
-                .filteringPath(function(path) {
-                    // mock stringified context to short version
-                    var parsed, context, shortContext;
-
-                    parsed = url.parse(path, true);
-                    context = JSON.parse(parsed.query.context);
-
-                    if (!context || !context.name) {
-                        return path;
-                    }
-
-                    shortContext = "context={name:" + context.name + "}";
-                    return parsed.pathname + "?" + shortContext;
-                })
-                .get('/services/' + params.config.name + '/' + serviceName + '?context={name:my-context}')
-                .reply(200, {
-                    service: serviceName + " reply"
-                });
+            scope = mockServiceCallWithContext(params, serviceName);
             mockScopes.push(scope);
         });
 
@@ -236,33 +273,7 @@ describe('Service method to activate a context', function() {
         // create mock for each service (call)
         services.forEach(function(serviceName, index) {
             var scope;
-            scope = nock(params.url)
-                .filteringPath(function(path) {
-                    // mock stringified context to short version
-                    var parsed, context, shortContext;
-
-                    parsed = url.parse(path, true);
-                    context = JSON.parse(parsed.query.context);
-
-                    if (!context || !context.name) {
-                        return path;
-                    }
-
-                    shortContext = "context={name:" + context.name + "}";
-                    return parsed.pathname + "?" + shortContext;
-                })
-                .get('/services/' + params.config.name + '/' + serviceName + '?context={name:my-context}');
-
-            if (index === 1) {
-                scope.reply(500, {
-                    service: "wahhhh"
-                });
-            } else {
-                scope.reply(200, {
-                    service: serviceName + " reply"
-                });
-            }
-
+			scope = mockServiceCallWithContextAndFail(params, serviceName, 1, index);
             mockScopes.push(scope);
         });
 
@@ -376,25 +387,7 @@ describe('Service method to deactivate a context', function() {
             // create mock for each service (call)
             services.forEach(function(serviceName) {
                 var scope;
-                scope = nock(params.url)
-                    .filteringPath(function(path) {
-                        // mock stringified context to short version
-                        var parsed, context, shortContext;
-
-                        parsed = url.parse(path, true);
-                        context = JSON.parse(parsed.query.context);
-
-                        if (!context || !context.name) {
-                            return path;
-                        }
-
-                        shortContext = "context={name:" + context.name + "}";
-                        return parsed.pathname + "?" + shortContext;
-                    })
-                    .get('/services/' + params.config.name + '/' + serviceName + '?context={name:my-context}')
-                    .reply(200, {
-                        service: serviceName + " reply"
-                    });
+				scope = mockServiceCallWithContext(params, serviceName);
                 mockScopes.push(scope);
             });
 
@@ -442,32 +435,7 @@ describe('Service method to deactivate a context', function() {
             // create mock for each service (call)
             services.forEach(function(serviceName, index) {
                 var scope;
-                scope = nock(params.url)
-                    .filteringPath(function(path) {
-                        // mock stringified context to short version
-                        var parsed, context, shortContext;
-
-                        parsed = url.parse(path, true);
-                        context = JSON.parse(parsed.query.context);
-
-                        if (!context || !context.name) {
-                            return path;
-                        }
-
-                        shortContext = "context={name:" + context.name + "}";
-                        return parsed.pathname + "?" + shortContext;
-                    })
-                    .get('/services/' + params.config.name + '/' + serviceName + '?context={name:my-context}');
-
-                if (index === 1) {
-                    scope.reply(500, {
-                        service: "wahhhh"
-                    });
-                } else {
-                    scope.reply(200, {
-                        service: serviceName + " reply"
-                    });
-                }
+                scope = mockServiceCallWithContextAndFail(params, serviceName, 1, index);
 
                 mockScopes.push(scope);
             });

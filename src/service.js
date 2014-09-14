@@ -38,10 +38,6 @@ function callServices(serviceNames, url, project, context, callback) {
     callServicesFor = mapWith(function(service) {
         // call service specified with context, use next service call as callback
         return function(serviceHandlerResponses, next) {
-            if (!serviceHandlerResponses) {
-                serviceHandlerResponses = [];
-            }
-
             sweetp.callService(url, project, service, params, false, function(err, response) {
                 serviceHandlerResponses.push(response);
                 next(err, serviceHandlerResponses);
