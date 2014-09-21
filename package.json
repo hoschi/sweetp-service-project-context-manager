@@ -3,15 +3,15 @@
   "version": "0.1.0",
   "main": "main.js",
   "description": "Sweetp service to manage project context.",
-  "homepage": "https://github.com/sweetp/sweetp-project-context-manager",
-  "bugs": "https://github.com/sweetp/sweetp-project-context-manager/issues",
+  "homepage": "https://github.com/hoschi/sweetp-project-context-manager",
+  "bugs": "https://github.com/hoschi/sweetp-project-context-manager/issues",
   "author": {
     "name": "Stefan Gojan",
     "email": "vollekannehoschi@gmail.com"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/sweetp/sweetp-project-context-manager"
+    "url": "https://github.com/hoschi/sweetp-project-context-manager"
   },
   "license": "MIT",
   "keywords": [
