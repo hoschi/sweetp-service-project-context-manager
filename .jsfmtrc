@@ -1,0 +1,17 @@
+{
+	"preset":"default",
+	"indent":{
+		"value":"\t"
+	},
+	"lineBreak":{
+		"before":{
+			"EndOfFile":1
+		}
+	},
+	"whiteSpace":{
+		"after":{
+			"FunctionName":1,
+			"FunctionReservedWord":1
+		}
+	}
+}
