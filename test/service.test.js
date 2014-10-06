@@ -24,6 +24,28 @@ baseParams = {
 	}
 };
 
+function deactivateCurrentContext (params, callback) {
+	s.getContexts(params.config.name, undefined, true, function (err, result) {
+		var doc;
+
+		if (err) {
+			throw err;
+		}
+		doc = _.first(result);
+
+		if (doc) {
+			s.getDb().document.delete(doc._id, function (err, response) {
+				if (err) {
+					throw new Error(s._getErrorFromResponse(err, response));
+				}
+				callback();
+			});
+		} else {
+			callback();
+		}
+	});
+}
+
 function mockServiceCallWithContext (params, serviceName) {
 	return nock(params.url)
 		.filteringPath(function (path) {
@@ -308,11 +330,121 @@ describe('Service method to activate a context', function () {
 			});
 	});
 
+	after(function (done) {
+		deactivateCurrentContext(params, done);
+	});
+});
+
+describe('Service method to activate a context for ticket', function () {
+	var params;
+
+	before(function (done) {
+		s.getDb(done);
+	});
+
+	params = _.cloneDeep(baseParams);
+
+	params.config.projectContextManager = {
+		ticketContextNamePrefix: 'issue/'
+	};
+
+	it("doesn't handle errors.", function (done) {
+		s.activateContextForTicket(true, undefined, function (err) {
+			err.should.equal(true);
+			done();
+		});
+	});
+
+	it('should fail without ticket id.', function (done) {
+		s.activateContextForTicket(null, params, function (err) {
+			err.message.should.equal("Can't activate context for a ticket without a ticket id.");
+			done();
+		});
+	});
+
+	it('should has a default for context name prefix.', function (done) {
+		var myParams, createContext;
+
+		myParams = _.cloneDeep(params);
+		myParams.ticketId = "42";
+
+		createContext = function (callback) {
+			s.activateContextForTicket(null, _.cloneDeep(myParams), function (err, data) {
+				if (err) {
+					throw err;
+				}
+				data.msg.should.equal('success');
+				should.not.exist(data.serviceHandlerResponses);
+
+				s.getContexts(myParams.config.name, 'ticket/42', true, function (err, result) {
+					var doc;
+
+					if (err) {
+						throw err;
+					}
+					doc = _.first(result);
+					doc.name.should.equal('ticket/42');
+					s.getDb().document.delete(doc._id, function (err) {
+						if (err) {
+							throw err;
+						}
+						callback();
+					});
+
+				});
+			});
+		};
+
+		// test with service config, but without prefix
+		delete myParams.config.projectContextManager.ticketContextNamePrefix;
+		createContext(function () {
+
+			// test with no service config at all
+			delete myParams.config.projectContextManager;
+
+			createContext(function () {
+				done();
+			});
+		});
+	});
+
+	it('should convert provided ticket id to string.', function (done) {
+		var myParams;
+
+		myParams = _.cloneDeep(params);
+		myParams.ticketId = 42;
+		s.activateContextForTicket(null, _.cloneDeep(myParams), function (err, data) {
+			if (err) {
+				throw err;
+			}
+			data.msg.should.equal('success');
+			should.not.exist(data.serviceHandlerResponses);
+			done();
+		});
+	});
+
+	after(function (done) {
+		deactivateCurrentContext(params, done);
+	});
 });
 
 describe('Service method to deactivate a context', function () {
 	var params;
 	params = _.cloneDeep(baseParams);
+
+	before(function (done) {
+		// create context we can deactivate
+		s.getDb().document.create(s.contextsCollectionName, {
+			isActive: true,
+			name: 'my-active-context',
+			projectName: 'test'
+		}, function (err, response) {
+				if (err) {
+					throw new Error(s._getErrorFromResponse(err, response));
+				}
+				done();
+			});
+	});
 
 	it("doesn't handle errors.", function (done) {
 		s.deactivateContext(true, undefined, function (err) {
@@ -327,7 +459,7 @@ describe('Service method to deactivate a context', function () {
 			data.msg.should.equal("Context deactivated.");
 			data.context.isActive.should.equal(false);
 			data.context.projectName.should.equal('test');
-			data.context.name.should.equal('my-context');
+			data.context.name.should.equal('my-active-context');
 			should.not.exist(data.serviceHandlerResponses);
 			done();
 		});
@@ -512,3 +644,4 @@ describe('Service method to get current context', function () {
 	});
 
 });
+
