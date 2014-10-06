@@ -32,6 +32,25 @@ exports.activate = {
 	fn: service.activateContext
 };
 
+exports.activateForTicket = {
+	options: {
+		params: {
+			url: sweetp.PARAMETER_TYPES.url,
+			config: sweetp.PARAMETER_TYPES.projectConfig,
+			ticketId: sweetp.PARAMETER_TYPES.one
+		},
+		description: {
+			summary: "Activate a context by a ticket id and construct name automatically. No *other* context should be active!",
+			config: [
+				"(onActivate String[]): service names to call when activating a context, each service call gets one parameter 'context' with the stringified JSON of the context.",
+				"(ticketContextNamePrefix String): perfix for context name, defaults to 'ticket/'"
+			]
+		},
+		returns: "Returns {msg:'success', (serviceHandlerResponses:[/*messages of service resplies */ ])}  when all went fine."
+	},
+	fn: service.activateContextForTicket
+};
+
 exports.deactivate = {
 	options: {
 		params: {
@@ -48,3 +67,4 @@ exports.deactivate = {
 	},
 	fn: service.activateContext
 };
+
