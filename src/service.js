@@ -11,10 +11,11 @@ nconf.defaults({
 	dbConnection: 'http://localhost:8529/sweetp'
 });
 exports.nconf = nconf;
+exports.contextsCollectionName = 'projectContexts';
 
 // module variables
-var contextsCollectionName;
-contextsCollectionName = 'projectContexts';
+var ticketContextNamePrefixDefault;
+ticketContextNamePrefixDefault = 'ticket/';
 
 // private helpers
 function mapWith (fn) {
@@ -82,6 +83,9 @@ exports.getDb = function (callback) {
 	var connection, db;
 
 	if (exports._db) {
+		if (callback) {
+			callback(null);
+		}
 		return exports._db;
 	}
 
@@ -98,13 +102,13 @@ exports.getDb = function (callback) {
 			var found;
 
 			found = response.collections.some(function (collection) {
-				return collection && collection.name === contextsCollectionName;
+				return collection && collection.name === exports.contextsCollectionName;
 			});
 
 			if (found) {
 				next(null, "All fine.");
 			} else {
-				db.collection.create(contextsCollectionName, function (err, response) {
+				db.collection.create(exports.contextsCollectionName, function (err, response) {
 					next(exports._getErrorFromResponse(err, response), "Collection created.");
 				});
 			}
@@ -147,7 +151,7 @@ exports.getContexts = function (projectName, name, isActive, callback) {
 		env.isActive = isActive;
 	}
 
-	exports.getDb().query.for('context').in(contextsCollectionName)
+	exports.getDb().query.for('context').in(exports.contextsCollectionName)
 		.filter(filter)
 		.return('context')
 		.exec(env, function (err, response) {
@@ -201,6 +205,38 @@ exports.deactivateContext = function (err, params, callback) {
 
 };
 
+exports.activateContextForTicket = function (err, params, callback) {
+	var ticketId, name;
+
+	if (err) {
+		return callback(err);
+	}
+
+	ticketId = params.ticketId;
+
+	if (!ticketId) {
+		return callback(new Error("Can't activate context for a ticket without a ticket id."));
+	}
+
+	// get prefix for context name
+	if (!params.config.projectContextManager ||
+		!params.config.projectContextManager.ticketContextNamePrefix) {
+		name = ticketContextNamePrefixDefault;
+	} else {
+		name = params.config.projectContextManager.ticketContextNamePrefix;
+	}
+
+	// add ticket id to name
+	name += ticketId.toString();
+
+	// modify params to match base method
+	delete params.ticketId;
+	params.name = name;
+
+	// proceed as normal
+	exports.activateContext(null, params, callback);
+};
+
 exports.activateContext = function (err, params, callback) {
 	var projectName, name, callServicesOnFinish, paramsLeet;
 
@@ -212,11 +248,11 @@ exports.activateContext = function (err, params, callback) {
 	name = params.name;
 	paramsLeet = leet(params);
 
-	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onActivate', null), params.url, projectName);
-
 	if (!name) {
 		return callback(new Error("Can't activate context without a name for it."));
 	}
+
+	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onActivate', null), params.url, projectName);
 
 	async.waterfall([function (next) {
 			exports._currentContext(null, params, next);
@@ -244,7 +280,7 @@ exports.activateContext = function (err, params, callback) {
 					name: name,
 					isActive: true
 				};
-				exports.getDb().document.create(contextsCollectionName, context, function (err) {
+				exports.getDb().document.create(exports.contextsCollectionName, context, function (err) {
 					next(err, context);
 				});
 			}
@@ -289,3 +325,4 @@ exports.currentContext = function (err, params, callback) {
 		callback(null, context);
 	});
 };
+
