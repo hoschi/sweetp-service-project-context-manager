@@ -65,6 +65,6 @@ exports.deactivate = {
 		},
 		returns: "Returns an object. Property 'msg' contains always the message. It tells you whether there was no active context or that it deactivated an active context. 'context' property is `undefined` when no context was active or the same object which you get with the `current` method. `serviceHandlerResponses` are filled with responses of called services when 'onDeactivate' handlers are defined."
 	},
-	fn: service.activateContext
+	fn: service.deactivateContext
 };
 
