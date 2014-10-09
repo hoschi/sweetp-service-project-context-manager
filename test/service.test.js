@@ -384,6 +384,7 @@ describe('Service method to activate a context for ticket', function () {
 					}
 					doc = _.first(result);
 					doc.name.should.equal('ticket/42');
+					doc.ticketId.should.equal('42');
 					s.getDb().document.delete(doc._id, function (err) {
 						if (err) {
 							throw err;
@@ -408,10 +409,11 @@ describe('Service method to activate a context for ticket', function () {
 		});
 	});
 
-	it('should convert provided ticket id to string.', function (done) {
+	it('should take context name prefix from config.', function (done) {
 		var myParams;
 
 		myParams = _.cloneDeep(params);
+		// use Number instead of String
 		myParams.ticketId = 42;
 		s.activateContextForTicket(null, _.cloneDeep(myParams), function (err, data) {
 			if (err) {
@@ -419,7 +421,59 @@ describe('Service method to activate a context for ticket', function () {
 			}
 			data.msg.should.equal('success');
 			should.not.exist(data.serviceHandlerResponses);
-			done();
+			s.getContexts(myParams.config.name, 'issue/42', true, function (err, result) {
+				var doc;
+
+				if (err) {
+					throw err;
+				}
+				result.should.have.length(1);
+				doc = _.first(result);
+				doc.name.should.equal('issue/42');
+				doc.ticketId.should.equal('42');
+				s.getDb().document.delete(doc._id, function (err) {
+					if (err) {
+						throw err;
+					}
+					done();
+				});
+
+			});
+		});
+	});
+
+	it('should convert provided ticket id to string.', function (done) {
+		var myParams;
+
+		myParams = _.cloneDeep(params);
+		// use default 'ticket' prefix
+		delete myParams.config.projectContextManager.ticketContextNamePrefix;
+		// use Number instead of String
+		myParams.ticketId = 42;
+		s.activateContextForTicket(null, _.cloneDeep(myParams), function (err, data) {
+			if (err) {
+				throw err;
+			}
+			data.msg.should.equal('success');
+			should.not.exist(data.serviceHandlerResponses);
+			s.getContexts(myParams.config.name, 'ticket/42', true, function (err, result) {
+				var doc;
+
+				if (err) {
+					throw err;
+				}
+				result.should.have.length(1);
+				doc = _.first(result);
+				doc.name.should.equal('ticket/42');
+				doc.ticketId.should.equal('42');
+				s.getDb().document.delete(doc._id, function (err) {
+					if (err) {
+						throw err;
+					}
+					done();
+				});
+
+			});
 		});
 	});
 

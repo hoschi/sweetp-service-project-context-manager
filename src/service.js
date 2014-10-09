@@ -206,17 +206,21 @@ exports.deactivateContext = function (err, params, callback) {
 };
 
 exports.activateContextForTicket = function (err, params, callback) {
-	var ticketId, name;
+	var ticketId, name, contextProperties;
 
 	if (err) {
 		return callback(err);
 	}
 
-	ticketId = params.ticketId;
-
-	if (!ticketId) {
+	if (!params.ticketId) {
 		return callback(new Error("Can't activate context for a ticket without a ticket id."));
 	}
+
+	ticketId = params.ticketId.toString();
+
+	contextProperties = {
+		ticketId: ticketId
+	};
 
 	// get prefix for context name
 	if (!params.config.projectContextManager ||
@@ -227,17 +231,21 @@ exports.activateContextForTicket = function (err, params, callback) {
 	}
 
 	// add ticket id to name
-	name += ticketId.toString();
+	name += ticketId;
 
 	// modify params to match base method
 	delete params.ticketId;
 	params.name = name;
 
 	// proceed as normal
-	exports.activateContext(null, params, callback);
+	exports.activateContextWithProperties(null, params, contextProperties, callback);
 };
 
 exports.activateContext = function (err, params, callback) {
+	return exports.activateContextWithProperties(err, params, undefined, callback);
+};
+
+exports.activateContextWithProperties = function (err, params, contextProperties, callback) {
 	var projectName, name, callServicesOnFinish, paramsLeet;
 
 	if (err) {
@@ -280,6 +288,11 @@ exports.activateContext = function (err, params, callback) {
 					name: name,
 					isActive: true
 				};
+
+				// assign properties computed already
+				_.assign(context, contextProperties);
+
+				// save it
 				exports.getDb().document.create(exports.contextsCollectionName, context, function (err) {
 					next(err, context);
 				});
