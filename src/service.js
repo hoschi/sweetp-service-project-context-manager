@@ -4,6 +4,11 @@ var _ = require('lodash');
 var nconf = require('nconf');
 var sweetp = require('sweetp-base');
 var leet = require('l33teral');
+var debug = require('debug');
+var log = {};
+['debug', 'error', 'log', 'warn', 'info'].forEach(function (level) {
+	log[level] = debug('project-context-manager:internal:' + level);
+});
 
 // setup configuration hierarchy: environment, args, defaults
 nconf.env().argv();
@@ -117,7 +122,7 @@ exports.getDb = function (callback) {
 			err = exports._getErrorFromResponse(err, response);
 
 			if (err) {
-				console.error(err);
+				log.error(err);
 				if (callback) {
 					return callback(err);
 				}

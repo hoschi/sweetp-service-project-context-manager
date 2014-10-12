@@ -10,6 +10,9 @@ You have to create the DB in your ArangoDB server named `sweetp` or configure an
 
 Configure DB by command line switch, e.g. `--dbConnection http://myotherhost:1234/sweetp-database`.
 
+Enabled logging with `DEBUG=project-context-manager:* node ...` environment
+variable. Set this (or other) environment variables before running sweetp
+server to enable loging in production.
 
 # Development
 
