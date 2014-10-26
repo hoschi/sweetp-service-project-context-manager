@@ -183,7 +183,7 @@ exports.deactivateContext = function (err, params, callback) {
 	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onDeactivate', null), params.url, projectName);
 
 	async.waterfall([function (next) {
-			exports._currentContext(null, params, next);
+			exports._currentContext(params, next);
 		}, function (context, next) {
 			if (context) {
 				// update
@@ -274,7 +274,7 @@ exports.activateContextWithProperties = function (err, params, contextProperties
 	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onActivate', null), params.url, projectName);
 
 	async.waterfall([function (next) {
-			exports._currentContext(null, params, next);
+			exports._currentContext(params, next);
 		}, function (context, next) {
 			if (context && context.name !== name) {
 				return next(new Error("Active context detected! You must deactivate it, before activating another context."));
@@ -320,12 +320,8 @@ exports.activateContextWithProperties = function (err, params, contextProperties
 
 };
 
-exports._currentContext = function (err, params, callback) {
+exports._currentContext = function (params, callback) {
 	var projectName;
-
-	if (err) {
-		return callback(err);
-	}
 
 	projectName = params.config.name;
 
@@ -341,7 +337,7 @@ exports.currentContext = function (err, params, callback) {
 		return callback(err);
 	}
 
-	exports._currentContext(undefined, params, function (err, context) {
+	exports._currentContext(params, function (err, context) {
 		// can't return 'undefined' to sweetp
 		if (!context) {
 			return callback(null, 'no active context');
