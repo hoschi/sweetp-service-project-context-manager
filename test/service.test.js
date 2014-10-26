@@ -699,3 +699,68 @@ describe('Service method to get current context', function () {
 
 });
 
+describe('Service method to patch existing context', function () {
+	var contextId;
+
+	before(function (done) {
+		// create context we can patch
+		s.getDb(function (err, response, db) {
+			db.document.create(s.contextsCollectionName, {
+				isActive: true,
+				name: 'my-active-context',
+				projectName: 'test'
+			}, function (err, response) {
+					if (err) {
+						throw new Error(s._getErrorFromResponse(err, response));
+					}
+					contextId = response._id;
+					done();
+				});
+		});
+	});
+
+	it("doesn't handle errors.", function (done) {
+		s.patchContext(true, undefined, function (err) {
+			err.should.equal(true);
+			done();
+		});
+	});
+
+	it('fails without contex id.', function (done) {
+		s.patchContext(undefined, {}, function (err) {
+			err.message.should.match(/ id /);
+			done();
+		});
+	});
+
+	it('fails without properties to set.', function (done) {
+		var params;
+
+		params = {
+			id: '1'
+		};
+
+		s.patchContext(undefined, params, function (err) {
+			err.message.should.match(/ properties /);
+			done();
+		});
+	});
+
+	it('returns patched context response when successfull.', function (done) {
+		var params;
+
+		params = {
+			id: contextId,
+			properties: {
+				foo: 'bar'
+			}
+		};
+
+		s.patchContext(undefined, params, function (err, context) {
+			should.not.exist(err);
+			context._id.should.equal(contextId);
+			done();
+		});
+	});
+});
+
