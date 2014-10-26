@@ -73,6 +73,12 @@ function callServices (serviceNames, url, project, context, callback) {
 	});
 }
 
+function liftDbError (callback) {
+	return function (err, response, opaque) {
+		return callback(exports._getErrorFromResponse(err, response), response, opaque);
+	};
+}
+
 // module
 exports._getErrorFromResponse = function (err, response) {
 	if (response && response.error) {
@@ -283,8 +289,8 @@ exports.activateContextWithProperties = function (err, params, contextProperties
 				// update
 				exports.getDb().document.patch(context._id, {
 					isActive: true
-				}, function (err) {
-						next(err, context);
+				}, function (err, response) {
+						next(exports._getErrorFromResponse(err, response), context);
 					});
 			} else {
 				// create
@@ -298,8 +304,8 @@ exports.activateContextWithProperties = function (err, params, contextProperties
 				_.assign(context, contextProperties);
 
 				// save it
-				exports.getDb().document.create(exports.contextsCollectionName, context, function (err) {
-					next(err, context);
+				exports.getDb().document.create(exports.contextsCollectionName, context, function (err, response) {
+					next(exports._getErrorFromResponse(err, response), context);
 				});
 			}
 		}, function (context, next) {
@@ -345,9 +351,7 @@ exports.currentContext = function (err, params, callback) {
 };
 
 exports._patchContext = function (id, properties, callback) {
-	exports.getDb().document.patch(id, properties, function (err, response) {
-		callback(exports._getErrorFromResponse(err, response), response);
-	});
+	exports.getDb().document.patch(id, properties, liftDbError(callback));
 };
 
 exports.patchContext = function (err, params, callback) {
