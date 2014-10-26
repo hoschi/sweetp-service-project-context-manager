@@ -89,7 +89,7 @@ exports.getDb = function (callback) {
 
 	if (exports._db) {
 		if (callback) {
-			callback(null);
+			callback(undefined, undefined, exports._db);
 		}
 		return exports._db;
 	}
@@ -129,7 +129,7 @@ exports.getDb = function (callback) {
 			}
 
 			if (callback) {
-				return callback(null, response);
+				return callback(undefined, response, db);
 			}
 		});
 
@@ -331,16 +331,38 @@ exports._currentContext = function (err, params, callback) {
 };
 
 exports.currentContext = function (err, params, callback) {
-	exports._currentContext(err, params, function (err, context) {
-		if (err) {
-			return callback(err);
-		}
+	if (err) {
+		return callback(err);
+	}
 
+	exports._currentContext(undefined, params, function (err, context) {
 		// can't return 'undefined' to sweetp
 		if (!context) {
 			return callback(null, 'no active context');
 		}
 		callback(null, context);
 	});
+};
+
+exports._patchContext = function (id, properties, callback) {
+	exports.getDb().document.patch(id, properties, function (err, response) {
+		callback(exports._getErrorFromResponse(err, response), response);
+	});
+};
+
+exports.patchContext = function (err, params, callback) {
+	if (err) {
+		return callback(err);
+	}
+
+	if (!params.id) {
+		return callback(new Error("No context id provided!"));
+	}
+
+	if (!params.properties) {
+		return callback(new Error("No properties provided!"));
+	}
+
+	exports._patchContext(params.id, params.properties, callback);
 };
 
