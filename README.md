@@ -1,4 +1,4 @@
-[![Code Climate](https://codeclimate.com/github/hoschi/sweetp-service-project-context-manager/badges/gpa.svg)](https://codeclimate.com/github/hoschi/sweetp-service-project-context-manager) [![Test Coverage](https://codeclimate.com/github/hoschi/sweetp-service-project-context-manager/badges/coverage.svg)](https://codeclimate.com/github/hoschi/sweetp-service-project-context-manager)
+[![Code Climate](https://codeclimate.com/github/hoschi/sweetp-service-project-context-manager/badges/gpa.svg)](https://codeclimate.com/github/hoschi/sweetp-service-project-context-manager) [![Test Coverage](https://codeclimate.com/github/hoschi/sweetp-service-project-context-manager/badges/coverage.svg)](https://codeclimate.com/github/hoschi/sweetp-service-project-context-manager) [![Stack Share](http://img.shields.io/badge/tech-stack-0690fa.svg?style=flat)](http://stackshare.io/hoschi/sweetp-service-project-context-manager)
 
 Sweetp service to manage project context.
 
