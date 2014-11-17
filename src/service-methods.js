@@ -68,3 +68,19 @@ exports.deactivate = {
 	fn: service.deactivateContext
 };
 
+exports.patchContext = {
+	options: {
+		params: {
+			url: sweetp.PARAMETER_TYPES.url,
+			config: sweetp.PARAMETER_TYPES.projectConfig,
+			id: sweetp.PARAMETER_TYPES.one,
+			properties: sweetp.PARAMETER_TYPES.one
+		},
+		description: {
+			summary: "Add/Change properties of an existing context."
+		},
+		returns: "Returns an object. Property 'msg' contains always the message. It tells you whether there was no active context or that it deactivated an active context. 'context' property is `undefined` when no context was active or the same object which you get with the `current` method. `serviceHandlerResponses` are filled with responses of called services when 'onDeactivate' handlers are defined."
+	},
+	fn: service.patchContext
+};
+

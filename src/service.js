@@ -44,6 +44,7 @@ function callServices (serviceNames, url, project, context, callback) {
 	callServicesFor = mapWith(function (service) {
 		// call service specified with context, use next service call as callback
 		return function (serviceHandlerResponses, next) {
+			log.debug("{" + serviceNames + "}", "call service:", service, "params:", params);
 			sweetp.callService(url, project, service, params, false, function (err, response) {
 				serviceHandlerResponses.push(response);
 				next(err, serviceHandlerResponses);
@@ -362,6 +363,8 @@ exports.patchContext = function (err, params, callback) {
 	if (!params.properties) {
 		return callback(new Error("No properties provided!"));
 	}
+	log.debug("patch context:", params.id, "props:", params.properties);
+	params.properties = JSON.parse(params.properties);
 
 	exports._patchContext(params.id, params.properties, callback);
 };
