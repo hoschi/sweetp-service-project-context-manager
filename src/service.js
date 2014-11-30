@@ -171,12 +171,8 @@ exports.getContexts = function (projectName, name, isActive, callback) {
 		});
 };
 
-exports.deactivateContext = function (err, params, callback) {
+exports.deactivateContext = function (params, callback) {
 	var projectName, paramsLeet, callServicesOnFinish;
-
-	if (err) {
-		return callback(err);
-	}
 
 	projectName = params.config.name;
 	paramsLeet = leet(params);
@@ -217,12 +213,8 @@ exports.deactivateContext = function (err, params, callback) {
 
 };
 
-exports.activateContextForTicket = function (err, params, callback) {
+exports.activateContextForTicket = function (params, callback) {
 	var ticketId, name, contextProperties;
-
-	if (err) {
-		return callback(err);
-	}
 
 	if (!params.ticketId) {
 		return callback(new Error("Can't activate context for a ticket without a ticket id."));
@@ -250,19 +242,15 @@ exports.activateContextForTicket = function (err, params, callback) {
 	params.name = name;
 
 	// proceed as normal
-	exports.activateContextWithProperties(null, params, contextProperties, callback);
+	exports.activateContextWithProperties(params, contextProperties, callback);
 };
 
-exports.activateContext = function (err, params, callback) {
-	return exports.activateContextWithProperties(err, params, undefined, callback);
+exports.activateContext = function (params, callback) {
+	return exports.activateContextWithProperties(params, undefined, callback);
 };
 
-exports.activateContextWithProperties = function (err, params, contextProperties, callback) {
+exports.activateContextWithProperties = function (params, contextProperties, callback) {
 	var projectName, name, callServicesOnFinish, paramsLeet;
-
-	if (err) {
-		return callback(err);
-	}
 
 	projectName = params.config.name;
 	name = params.name;
@@ -333,11 +321,7 @@ exports._currentContext = function (params, callback) {
 	});
 };
 
-exports.currentContext = function (err, params, callback) {
-	if (err) {
-		return callback(err);
-	}
-
+exports.currentContext = function (params, callback) {
 	exports._currentContext(params, function (err, context) {
 		// can't return 'undefined' to sweetp
 		if (!context) {
@@ -351,11 +335,7 @@ exports._patchContext = function (id, properties, callback) {
 	exports.getDb().document.patch(id, properties, liftDbError(callback));
 };
 
-exports.patchContext = function (err, params, callback) {
-	if (err) {
-		return callback(err);
-	}
-
+exports.patchContext = function (params, callback) {
 	if (!params.id) {
 		return callback(new Error("No context id provided!"));
 	}

@@ -205,22 +205,15 @@ describe('Service method to activate a context', function () {
 	var params;
 	params = _.cloneDeep(baseParams);
 
-	it("doesn't handle errors.", function (done) {
-		s.activateContext(true, undefined, function (err) {
-			err.should.equal(true);
-			done();
-		});
-	});
-
 	it('should fail without context name.', function (done) {
-		s.activateContext(null, params, function (err) {
+		s.activateContext(params, function (err) {
 			err.message.should.equal("Can't activate context without a name for it.");
 			done();
 		});
 	});
 
 	it('should return "success" when all went fine.', function (done) {
-		s.activateContext(null, _.assign({
+		s.activateContext(_.assign({
 			name: 'my-context'
 		}, params), function (err, data) {
 				should.not.exist(err);
@@ -231,7 +224,7 @@ describe('Service method to activate a context', function () {
 	});
 
 	it('should return "success" when contex is already active.', function (done) {
-		s.activateContext(null, _.assign({
+		s.activateContext(_.assign({
 			name: 'my-context'
 		}, params), function (err, data) {
 				should.not.exist(err);
@@ -263,7 +256,7 @@ describe('Service method to activate a context', function () {
 			onActivate: services
 		};
 
-		s.activateContext(null, _.assign({
+		s.activateContext(_.assign({
 			name: 'my-context'
 		}, myParams), function (err, data) {
 				should.not.exist(err);
@@ -304,7 +297,7 @@ describe('Service method to activate a context', function () {
 			onActivate: services
 		};
 
-		s.activateContext(null, _.assign({
+		s.activateContext(_.assign({
 			name: 'my-context'
 		}, myParams), function (err) {
 				err.should.match(/wahhhh/);
@@ -322,7 +315,7 @@ describe('Service method to activate a context', function () {
 	});
 
 	it('should throw error when another context is active.', function (done) {
-		s.activateContext(null, _.assign({
+		s.activateContext(_.assign({
 			name: 'my-context-2'
 		}, params), function (err) {
 				err.message.should.equal("Active context detected! You must deactivate it, before activating another context.");
@@ -348,15 +341,8 @@ describe('Service method to activate a context for ticket', function () {
 		ticketContextNamePrefix: 'issue/'
 	};
 
-	it("doesn't handle errors.", function (done) {
-		s.activateContextForTicket(true, undefined, function (err) {
-			err.should.equal(true);
-			done();
-		});
-	});
-
 	it('should fail without ticket id.', function (done) {
-		s.activateContextForTicket(null, params, function (err) {
+		s.activateContextForTicket(params, function (err) {
 			err.message.should.equal("Can't activate context for a ticket without a ticket id.");
 			done();
 		});
@@ -369,7 +355,7 @@ describe('Service method to activate a context for ticket', function () {
 		myParams.ticketId = "42";
 
 		createContext = function (callback) {
-			s.activateContextForTicket(null, _.cloneDeep(myParams), function (err, data) {
+			s.activateContextForTicket(_.cloneDeep(myParams), function (err, data) {
 				if (err) {
 					throw err;
 				}
@@ -415,7 +401,7 @@ describe('Service method to activate a context for ticket', function () {
 		myParams = _.cloneDeep(params);
 		// use Number instead of String
 		myParams.ticketId = 42;
-		s.activateContextForTicket(null, _.cloneDeep(myParams), function (err, data) {
+		s.activateContextForTicket(_.cloneDeep(myParams), function (err, data) {
 			if (err) {
 				throw err;
 			}
@@ -450,7 +436,7 @@ describe('Service method to activate a context for ticket', function () {
 		delete myParams.config.projectContextManager.ticketContextNamePrefix;
 		// use Number instead of String
 		myParams.ticketId = 42;
-		s.activateContextForTicket(null, _.cloneDeep(myParams), function (err, data) {
+		s.activateContextForTicket(_.cloneDeep(myParams), function (err, data) {
 			if (err) {
 				throw err;
 			}
@@ -500,15 +486,8 @@ describe('Service method to deactivate a context', function () {
 			});
 	});
 
-	it("doesn't handle errors.", function (done) {
-		s.deactivateContext(true, undefined, function (err) {
-			err.should.equal(true);
-			done();
-		});
-	});
-
 	it('should return deactivated context.', function (done) {
-		s.deactivateContext(null, params, function (err, data) {
+		s.deactivateContext(params, function (err, data) {
 			should.not.exist(err);
 			data.msg.should.equal("Context deactivated.");
 			data.context.isActive.should.equal(false);
@@ -520,7 +499,7 @@ describe('Service method to deactivate a context', function () {
 	});
 
 	it('should return only message when there was no context to deactivate.', function (done) {
-		s.deactivateContext(null, params, function (err, data) {
+		s.deactivateContext(params, function (err, data) {
 			should.not.exist(err);
 			data.msg.should.equal("No active context.");
 			should.not.exist(data.context);
@@ -543,7 +522,7 @@ describe('Service method to deactivate a context', function () {
 			onDeactivate: services
 		};
 
-		s.deactivateContext(null, params, function (err, data) {
+		s.deactivateContext(params, function (err, data) {
 			should.not.exist(err);
 			data.msg.should.equal("No active context.");
 			should.not.exist(data.context);
@@ -554,7 +533,7 @@ describe('Service method to deactivate a context', function () {
 
 	it('should call all services which are configured to run on deactivation.', function (done) {
 		// activate context to have one to deactivate
-		s.activateContext(null, _.assign({
+		s.activateContext(_.assign({
 			name: 'my-context'
 		}, params), function (err, data) {
 				var services, mockScopes, myParams;
@@ -582,7 +561,7 @@ describe('Service method to deactivate a context', function () {
 					onDeactivate: services
 				};
 
-				s.deactivateContext(null, myParams, function (err, data) {
+				s.deactivateContext(myParams, function (err, data) {
 					should.not.exist(err);
 
 					data.msg.should.equal("Context deactivated.");
@@ -601,7 +580,7 @@ describe('Service method to deactivate a context', function () {
 
 	it('should abort calling services on first failed service.', function (done) {
 		// activate context to have one to deactivate
-		s.activateContext(null, _.assign({
+		s.activateContext(_.assign({
 			name: 'my-context'
 		}, params), function (err, data) {
 				var services, mockScopes, myParams;
@@ -631,7 +610,7 @@ describe('Service method to deactivate a context', function () {
 					onDeactivate: services
 				};
 
-				s.deactivateContext(null, myParams, function (err) {
+				s.deactivateContext(myParams, function (err) {
 					err.should.match(/wahhhh/);
 					err.should.match(/task1 reply/);
 					err.should.not.match(/task3 reply/);
@@ -652,15 +631,8 @@ describe('Service method to get current context', function () {
 	var params;
 	params = _.cloneDeep(baseParams);
 
-	it("doesn't handle errors.", function (done) {
-		s.currentContext(true, undefined, function (err) {
-			err.should.equal(true);
-			done();
-		});
-	});
-
 	it('should return message when no context is active.', function (done) {
-		s.currentContext(null, params, function (err, data) {
+		s.currentContext(params, function (err, data) {
 			should.not.exist(err);
 			should.equal(data, "no active context");
 			done();
@@ -668,14 +640,14 @@ describe('Service method to get current context', function () {
 	});
 
 	it('should return information about the active context when there is one.', function (done) {
-		s.activateContext(null, _.assign({
+		s.activateContext(_.assign({
 			name: 'my-context'
 		}, params), function (err, data) {
 				should.not.exist(err);
 				data.msg.should.equal('success');
 				should.not.exist(data.serviceHandlerResponses);
 
-				s.currentContext(null, params, function (err, data) {
+				s.currentContext(params, function (err, data) {
 					should.not.exist(err);
 					data.isActive.should.equal(true);
 					data.projectName.should.equal('test');
@@ -686,10 +658,10 @@ describe('Service method to get current context', function () {
 	});
 
 	it('should return message after deactivating current context.', function (done) {
-		s.deactivateContext(null, params, function (err, data) {
+		s.deactivateContext(params, function (err, data) {
 			should.not.exist(err);
 			data.msg.should.equal("Context deactivated.");
-			s.currentContext(null, params, function (err, data) {
+			s.currentContext(params, function (err, data) {
 				should.not.exist(err);
 				should.equal(data, "no active context");
 				done();
@@ -719,15 +691,8 @@ describe('Service method to patch existing context', function () {
 		});
 	});
 
-	it("doesn't handle errors.", function (done) {
-		s.patchContext(true, undefined, function (err) {
-			err.should.equal(true);
-			done();
-		});
-	});
-
 	it('fails without contex id.', function (done) {
-		s.patchContext(undefined, {}, function (err) {
+		s.patchContext({}, function (err) {
 			err.message.should.match(/ id /);
 			done();
 		});
@@ -740,7 +705,7 @@ describe('Service method to patch existing context', function () {
 			id: '1'
 		};
 
-		s.patchContext(undefined, params, function (err) {
+		s.patchContext(params, function (err) {
 			err.message.should.match(/ properties /);
 			done();
 		});
@@ -751,12 +716,12 @@ describe('Service method to patch existing context', function () {
 
 		params = {
 			id: contextId,
-			properties: {
-				foo: 'bar'
-			}
+			properties: JSON.stringify({
+				'foo': 'bar'
+			})
 		};
 
-		s.patchContext(undefined, params, function (err, context) {
+		s.patchContext(params, function (err, context) {
 			should.not.exist(err);
 			context._id.should.equal(contextId);
 			done();
