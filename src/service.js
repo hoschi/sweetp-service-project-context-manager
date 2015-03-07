@@ -4,11 +4,7 @@ var _ = require('lodash');
 var nconf = require('nconf');
 var sweetp = require('sweetp-base');
 var leet = require('l33teral');
-var debug = require('debug');
-var log = {};
-['debug', 'error', 'log', 'warn', 'info'].forEach(function (level) {
-	log[level] = debug('project-context-manager:internal:' + level);
-});
+var log = require('sweetp-base/lib/log')('project-context-manager:internal:');
 
 // setup configuration hierarchy: environment, args, defaults
 nconf.env().argv();

@@ -37,8 +37,7 @@
     "arangojs": "~1.0.0",
     "async": "~0.9.0",
     "nconf": "~0.6.9",
-    "l33teral": "~2.0.4",
-    "debug": "~2.0.0"
+    "l33teral": "~2.0.4"
   },
   "config": {
     "blanket": {
