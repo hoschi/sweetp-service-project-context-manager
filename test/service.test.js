@@ -59,6 +59,9 @@ function mockServiceCallWithContext (params, serviceName) {
 				return path;
 			}
 
+			// assertions for context
+			should.exist(context._id, "Supplied context should have an id for manuplating it.");
+
 			shortContext = "context={name:" + context.name + "}";
 			return parsed.pathname + "?" + shortContext;
 		})
@@ -205,6 +208,11 @@ describe('Service method to activate a context', function () {
 	var params;
 	params = _.cloneDeep(baseParams);
 
+	// init DB in case only this test runs
+	before(function (done) {
+		s.getDb(done);
+	});
+
 	it('should fail without context name.', function (done) {
 		s.activateContext(params, function (err) {
 			err.message.should.equal("Can't activate context without a name for it.");
@@ -310,6 +318,54 @@ describe('Service method to activate a context', function () {
 						scope.isDone().should.equal(true);
 					}
 				});
+				done();
+			});
+	});
+
+	it('should abort calling services on DB error.', function (done) {
+		var services, mockScopes, myParams, db, mock;
+
+		// services to call
+		services = [
+			'testservice/task1',
+			'testservice/task2',
+			'testservice/task3'
+		];
+		mockScopes = [];
+
+		// create mock for each service (call)
+		services.forEach(function (serviceName, index) {
+			var scope;
+			scope = mockServiceCallWithContextAndFail(params, serviceName, 1, index);
+			mockScopes.push(scope);
+		});
+
+		// mock db document API to provide error callback
+		db = s.getDb();
+		mock = sinon.mock(db.document);
+		mock.expects("create")
+			.callsArgWith(2, "DB error when creating context!!!111einself");
+
+		myParams = _.cloneDeep(params);
+		myParams.config.projectContextManager = {
+			onActivate: services
+		};
+
+		s.activateContext(_.assign({
+			name: 'my-context'
+		}, myParams), function (err) {
+				err.should.match(/DB error when creating context/);
+				err.should.not.match(/task1 reply/);
+				err.should.not.match(/task3 reply/);
+				err.should.not.match(/wahhhh/);
+
+				// check for pending mocks
+				mockScopes.forEach(function (scope) {
+					if (scope.isDone) {
+						scope.isDone().should.equal(true);
+					}
+				});
+				mock.restore();
 				done();
 			});
 	});
@@ -630,6 +686,11 @@ describe('Service method to deactivate a context', function () {
 describe('Service method to get current context', function () {
 	var params;
 	params = _.cloneDeep(baseParams);
+
+	// init DB in case only this test runs
+	before(function (done) {
+		s.getDb(done);
+	});
 
 	it('should return message when no context is active.', function (done) {
 		s.currentContext(params, function (err, data) {

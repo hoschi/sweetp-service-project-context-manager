@@ -290,6 +290,13 @@ exports.activateContextWithProperties = function (params, contextProperties, cal
 
 				// save it
 				exports.getDb().document.create(exports.contextsCollectionName, context, function (err, response) {
+					// check for error
+					if (err) {
+						return callback(err);
+					}
+					// save id of new context in object we pass to other sevices,
+					// so they can modify it
+					context._id = response._id;
 					next(exports._getErrorFromResponse(err, response), context);
 				});
 			}

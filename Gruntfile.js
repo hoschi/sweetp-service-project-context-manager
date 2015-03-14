@@ -67,6 +67,13 @@ module.exports = function (grunt) {
 					'<%= jshint.test.src %>'
 				],
 				tasks: ['jshint', 'mochacov:unit']
+			},
+			coverage: {
+				files: [
+					'<%= jshint.src.src %>',
+					'<%= jshint.test.src %>'
+				],
+				tasks: ['jshint', 'mochacov']
 			}
 		}
 	});
@@ -75,3 +82,4 @@ module.exports = function (grunt) {
 	grunt.registerTask('test', ['mochacov:unit']);
 	grunt.registerTask('default', ['jshint', 'test']);
 };
+
