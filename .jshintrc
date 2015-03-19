@@ -5,7 +5,9 @@
         "beforeEach":true,
         "afterEach":true,
 		"describe":true,
-		"it":true
+		"xdescribe":true,
+		"it":true,
+		"xit":true
 	},
     "curly": true,
     "eqeqeq": true,
