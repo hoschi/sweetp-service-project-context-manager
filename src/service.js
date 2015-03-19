@@ -70,13 +70,13 @@ function callServices (serviceNames, url, project, context, callback) {
 	});
 }
 
-function liftDbError (callback) {
-	return function (err, response, opaque) {
-		return callback(exports._getErrorFromResponse(err, response), response, opaque);
-	};
-}
-
 // module
+exports._liftDbError = function (callback) {
+	return function (err, response, opaque) {
+		return callback(this._getErrorFromResponse(err, response), response, opaque);
+	}.bind(this);
+};
+
 exports._getErrorFromResponse = function (err, response) {
 	if (response && response.error) {
 		return new Error([response.code, response.errorNum, response.errorMessage].join(' '));
@@ -90,11 +90,11 @@ exports._getErrorFromResponse = function (err, response) {
 exports.getDb = function (callback) {
 	var connection, db;
 
-	if (exports._db) {
+	if (this._db) {
 		if (callback) {
-			callback(undefined, undefined, exports._db);
+			callback(undefined, undefined, this._db);
 		}
-		return exports._db;
+		return this._db;
 	}
 
 	connection = nconf.get('dbConnection');
@@ -110,19 +110,19 @@ exports.getDb = function (callback) {
 			var found;
 
 			found = response.collections.some(function (collection) {
-				return collection && collection.name === exports.contextsCollectionName;
-			});
+				return collection && collection.name === this.contextsCollectionName;
+			}.bind(this));
 
 			if (found) {
 				next(null, "All fine.");
 			} else {
-				db.collection.create(exports.contextsCollectionName, function (err, response) {
-					next(exports._getErrorFromResponse(err, response), "Collection created.");
-				});
+				db.collection.create(this.contextsCollectionName, function (err, response) {
+					next(this._getErrorFromResponse(err, response), "Collection created.");
+				}.bind(this));
 			}
-		}
+		}.bind(this)
 	], function (err, response) {
-			err = exports._getErrorFromResponse(err, response);
+			err = this._getErrorFromResponse(err, response);
 
 			if (err) {
 				log.error(err);
@@ -134,10 +134,10 @@ exports.getDb = function (callback) {
 			if (callback) {
 				return callback(undefined, response, db);
 			}
-		});
+		}.bind(this));
 
-	exports._db = db;
-	return exports._db;
+	this._db = db;
+	return this._db;
 };
 
 exports.getContexts = function (projectName, name, isActive, callback) {
@@ -159,12 +159,12 @@ exports.getContexts = function (projectName, name, isActive, callback) {
 		env.isActive = isActive;
 	}
 
-	exports.getDb().query.for('context').in(exports.contextsCollectionName)
+	this.getDb().query.for('context').in(this.contextsCollectionName)
 		.filter(filter)
 		.return('context')
 		.exec(env, function (err, response) {
-			callback(exports._getErrorFromResponse(err, response), response.result);
-		});
+			callback(this._getErrorFromResponse(err, response), response.result);
+		}.bind(this));
 };
 
 exports.deactivateContext = function (params, callback) {
@@ -176,12 +176,12 @@ exports.deactivateContext = function (params, callback) {
 	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onDeactivate', null), params.url, projectName);
 
 	async.waterfall([function (next) {
-			exports._currentContext(params, next);
-		}, function (context, next) {
+			this._currentContext(params, next);
+		}.bind(this), function (context, next) {
 			if (context) {
 				// update
 				context.isActive = false;
-				exports.getDb().document.patch(context._id, {
+				this.getDb().document.patch(context._id, {
 					isActive: context.isActive
 				}, function (err) {
 						next(err, context);
@@ -189,7 +189,7 @@ exports.deactivateContext = function (params, callback) {
 			} else {
 				next(null, null);
 			}
-		}, function (context, next) {
+		}.bind(this), function (context, next) {
 			if (!context) {
 				// no active context found
 				return next(null, {
@@ -204,7 +204,7 @@ exports.deactivateContext = function (params, callback) {
 					serviceHandlerResponses: serviceHandlerResponses
 				});
 			});
-		}
+		}.bind(this)
 	], callback);
 
 };
@@ -238,11 +238,11 @@ exports.activateContextForTicket = function (params, callback) {
 	params.name = name;
 
 	// proceed as normal
-	exports.activateContextWithProperties(params, contextProperties, callback);
+	this.activateContextWithProperties(params, contextProperties, callback);
 };
 
 exports.activateContext = function (params, callback) {
-	return exports.activateContextWithProperties(params, undefined, callback);
+	return this.activateContextWithProperties(params, undefined, callback);
 };
 
 exports.activateContextWithProperties = function (params, contextProperties, callback) {
@@ -259,24 +259,24 @@ exports.activateContextWithProperties = function (params, contextProperties, cal
 	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onActivate', null), params.url, projectName);
 
 	async.waterfall([function (next) {
-			exports._currentContext(params, next);
-		}, function (context, next) {
+			this._currentContext(params, next);
+		}.bind(this), function (context, next) {
 			if (context && context.name !== name) {
 				return next(new Error("Active context detected! You must deactivate it, before activating another context."));
 			}
 
 			// fetch context
-			exports.getContexts(projectName, name, undefined, function (err, result) {
+			this.getContexts(projectName, name, undefined, function (err, result) {
 				next(err, _.first(result));
 			});
-		}, function (context, next) {
+		}.bind(this), function (context, next) {
 			if (context) {
 				// update
-				exports.getDb().document.patch(context._id, {
+				this.getDb().document.patch(context._id, {
 					isActive: true
 				}, function (err, response) {
-						next(exports._getErrorFromResponse(err, response), context);
-					});
+						next(this._getErrorFromResponse(err, response), context);
+					}.bind(this));
 			} else {
 				// create
 				context = {
@@ -289,7 +289,7 @@ exports.activateContextWithProperties = function (params, contextProperties, cal
 				_.assign(context, contextProperties);
 
 				// save it
-				exports.getDb().document.create(exports.contextsCollectionName, context, function (err, response) {
+				this.getDb().document.create(this.contextsCollectionName, context, function (err, response) {
 					// check for error
 					if (err) {
 						return callback(err);
@@ -297,17 +297,17 @@ exports.activateContextWithProperties = function (params, contextProperties, cal
 					// save id of new context in object we pass to other sevices,
 					// so they can modify it
 					context._id = response._id;
-					next(exports._getErrorFromResponse(err, response), context);
-				});
+					next(this._getErrorFromResponse(err, response), context);
+				}.bind(this));
 			}
-		}, function (context, next) {
+		}.bind(this), function (context, next) {
 			callServicesOnFinish(context, function (err, serviceHandlerResponses) {
 				next(err, {
 					msg: 'success',
 					serviceHandlerResponses: serviceHandlerResponses
 				});
 			});
-		}
+		}.bind(this)
 	], callback);
 
 };
@@ -317,7 +317,7 @@ exports._currentContext = function (params, callback) {
 
 	projectName = params.config.name;
 
-	exports.getContexts(projectName, undefined, true, function (err, result) {
+	this.getContexts(projectName, undefined, true, function (err, result) {
 		var context;
 		context = _.first(result);
 		callback(err, context);
@@ -325,7 +325,7 @@ exports._currentContext = function (params, callback) {
 };
 
 exports.currentContext = function (params, callback) {
-	exports._currentContext(params, function (err, context) {
+	this._currentContext(params, function (err, context) {
 		// can't return 'undefined' to sweetp
 		if (!context) {
 			return callback(null, 'no active context');
@@ -335,7 +335,7 @@ exports.currentContext = function (params, callback) {
 };
 
 exports._patchContext = function (id, properties, callback) {
-	exports.getDb().document.patch(id, properties, liftDbError(callback));
+	this.getDb().document.patch(id, properties, this._liftDbError(callback));
 };
 
 exports.patchContext = function (params, callback) {
@@ -349,6 +349,6 @@ exports.patchContext = function (params, callback) {
 	log.debug("patch context:", params.id, "props:", params.properties);
 	params.properties = JSON.parse(params.properties);
 
-	exports._patchContext(params.id, params.properties, callback);
+	this._patchContext(params.id, params.properties, callback);
 };
 
