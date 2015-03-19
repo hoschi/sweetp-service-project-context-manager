@@ -104,6 +104,25 @@ function mockServiceCallWithContextAndFail (params, serviceName, failAt, index) 
 	return scope;
 }
 
+var blocked = false;
+var release;
+function checkTestExecution (done) {
+	if (blocked) {
+		release = function () {
+			blocked = false;
+			nock.cleanAll();
+			done();
+		};
+	} else {
+		blocked = true;
+		release = function () {
+			blocked = false;
+			nock.cleanAll();
+		};
+		done();
+	}
+}
+
 before(function (done) {
 	var db;
 	// recreate db
@@ -143,16 +162,19 @@ describe('DB connection', function () {
 		});
 	};
 
-	beforeEach(function () {
+	beforeEach(function (done) {
 		sinon.stub(console, "error", function () {});
+		checkTestExecution(done);
 	});
 
 	afterEach(function () {
 		console.error.restore();
+		release();
 	});
 
-	it('string can be overriden.', function () {
+	it('string can be overriden.', function (done) {
 		s.nconf.get('dbConnection').should.equal('http://localhost:8529/sweetpUnittest');
+		done();
 	});
 
 	it('should not fail with not existing DB.', function (done) {
@@ -169,7 +191,7 @@ describe('DB connection', function () {
 		});
 	});
 
-	it('should not fail with not existing DB and no callback for error handling.', function () {
+	it('should not fail with not existing DB and no callback for error handling.', function (done) {
 		var db;
 		setNotExistingDb();
 
@@ -177,6 +199,7 @@ describe('DB connection', function () {
 		db.should.be.a('object');
 		s.nconf.defaults(nconfDefaults);
 		delete s._db;
+		done();
 	});
 
 	it('should create collection if it not exists.', function (done) {
@@ -208,9 +231,18 @@ describe('Service method to activate a context', function () {
 	var params;
 	params = _.cloneDeep(baseParams);
 
-	// init DB in case only this test runs
-	before(function (done) {
-		s.getDb(done);
+	// init DB one every test, so we can mock it
+	beforeEach(function (done) {
+		s.getDb(function () {
+			checkTestExecution(done);
+		});
+	});
+
+	afterEach(function (done) {
+		deactivateCurrentContext(params, function () {
+			release();
+			done();
+		});
 	});
 
 	it('should fail without context name.', function (done) {
@@ -267,6 +299,7 @@ describe('Service method to activate a context', function () {
 		s.activateContext(_.assign({
 			name: 'my-context'
 		}, myParams), function (err, data) {
+				var i, scope;
 				should.not.exist(err);
 
 				data.msg.should.equal('success');
@@ -275,9 +308,10 @@ describe('Service method to activate a context', function () {
 				data.serviceHandlerResponses[1].should.equal("testservice/task2 reply");
 
 				// check for pending mocks
-				mockScopes.forEach(function (scope) {
+				for (i = 0; i < mockScopes.length; i++) {
+					scope = mockScopes[i];
 					scope.isDone().should.equal(true);
-				});
+				}
 				done();
 			});
 	});
@@ -323,7 +357,7 @@ describe('Service method to activate a context', function () {
 	});
 
 	it('should abort calling services on DB error.', function (done) {
-		var services, mockScopes, myParams, db, mock;
+		var services, mockScopes, myParams, mock;
 
 		// services to call
 		services = [
@@ -341,8 +375,7 @@ describe('Service method to activate a context', function () {
 		});
 
 		// mock db document API to provide error callback
-		db = s.getDb();
-		mock = sinon.mock(db.document);
+		mock = sinon.mock(s._db.document);
 		mock.expects("create")
 			.callsArgWith(2, "DB error when creating context!!!111einself");
 
@@ -352,7 +385,7 @@ describe('Service method to activate a context', function () {
 		};
 
 		s.activateContext(_.assign({
-			name: 'my-context'
+			name: 'my-context-which-not-exists'
 		}, myParams), function (err) {
 				err.should.match(/DB error when creating context/);
 				err.should.not.match(/task1 reply/);
@@ -371,24 +404,35 @@ describe('Service method to activate a context', function () {
 	});
 
 	it('should throw error when another context is active.', function (done) {
+		// activate context
 		s.activateContext(_.assign({
-			name: 'my-context-2'
-		}, params), function (err) {
-				err.message.should.equal("Active context detected! You must deactivate it, before activating another context.");
-				done();
-			});
-	});
+			name: 'my-context-1'
+		}, params), function (err, data) {
+				should.not.exist(err);
+				data.msg.should.equal('success');
 
-	after(function (done) {
-		deactivateCurrentContext(params, done);
+				// second activation should fail
+				s.activateContext(_.assign({
+					name: 'my-context-2'
+				}, params), function (err) {
+						err.message.should.equal("Active context detected! You must deactivate it, before activating another context.");
+						done();
+					});
+			});
 	});
 });
 
 describe('Service method to activate a context for ticket', function () {
 	var params;
 
-	before(function (done) {
-		s.getDb(done);
+	beforeEach(function (done) {
+		s.getDb(function () {
+			checkTestExecution(done);
+		});
+	});
+
+	afterEach(function () {
+		release();
 	});
 
 	params = _.cloneDeep(baseParams);
@@ -528,7 +572,17 @@ describe('Service method to deactivate a context', function () {
 	var params;
 	params = _.cloneDeep(baseParams);
 
-	before(function (done) {
+	beforeEach(function (done) {
+		s.getDb(function () {
+			checkTestExecution(done);
+		});
+	});
+
+	afterEach(function () {
+		release();
+	});
+
+	it('should return deactivated context.', function (done) {
 		// create context we can deactivate
 		s.getDb().document.create(s.contextsCollectionName, {
 			isActive: true,
@@ -538,20 +592,16 @@ describe('Service method to deactivate a context', function () {
 				if (err) {
 					throw new Error(s._getErrorFromResponse(err, response));
 				}
-				done();
+				s.deactivateContext(params, function (err, data) {
+					should.not.exist(err);
+					data.msg.should.equal("Context deactivated.");
+					data.context.isActive.should.equal(false);
+					data.context.projectName.should.equal('test');
+					data.context.name.should.equal('my-active-context');
+					should.not.exist(data.serviceHandlerResponses);
+					done();
+				});
 			});
-	});
-
-	it('should return deactivated context.', function (done) {
-		s.deactivateContext(params, function (err, data) {
-			should.not.exist(err);
-			data.msg.should.equal("Context deactivated.");
-			data.context.isActive.should.equal(false);
-			data.context.projectName.should.equal('test');
-			data.context.name.should.equal('my-active-context');
-			should.not.exist(data.serviceHandlerResponses);
-			done();
-		});
 	});
 
 	it('should return only message when there was no context to deactivate.', function (done) {
@@ -687,9 +737,14 @@ describe('Service method to get current context', function () {
 	var params;
 	params = _.cloneDeep(baseParams);
 
-	// init DB in case only this test runs
-	before(function (done) {
-		s.getDb(done);
+	beforeEach(function (done) {
+		s.getDb(function () {
+			checkTestExecution(done);
+		});
+	});
+
+	afterEach(function () {
+		release();
 	});
 
 	it('should return message when no context is active.', function (done) {
@@ -729,27 +784,17 @@ describe('Service method to get current context', function () {
 			});
 		});
 	});
-
 });
 
 describe('Service method to patch existing context', function () {
-	var contextId;
-
-	before(function (done) {
-		// create context we can patch
-		s.getDb(function (err, response, db) {
-			db.document.create(s.contextsCollectionName, {
-				isActive: true,
-				name: 'my-active-context',
-				projectName: 'test'
-			}, function (err, response) {
-					if (err) {
-						throw new Error(s._getErrorFromResponse(err, response));
-					}
-					contextId = response._id;
-					done();
-				});
+	beforeEach(function (done) {
+		s.getDb(function () {
+			checkTestExecution(done);
 		});
+	});
+
+	afterEach(function () {
+		release();
 	});
 
 	it('fails without contex id.', function (done) {
@@ -773,20 +818,54 @@ describe('Service method to patch existing context', function () {
 	});
 
 	it('returns patched context response when successfull.', function (done) {
-		var params;
+		s.getDb().document.create(s.contextsCollectionName, {
+			isActive: true,
+			name: 'my-active-context',
+			projectName: 'test'
+		}, function (err, response) {
+				var params, contextId;
+				if (err) {
+					throw new Error(s._getErrorFromResponse(err, response));
+				}
+				contextId = response._id;
+
+				params = {
+					id: contextId,
+					properties: JSON.stringify({
+						'foo': 'bar'
+					})
+				};
+
+				s.patchContext(params, function (err, context) {
+					should.not.exist(err);
+					context._id.should.equal(contextId);
+					done();
+				});
+			});
+	});
+
+	it('should pass DB error to callback.', function (done) {
+		var mock, params;
+
+		// mock db document API to provide error callback
+		mock = sinon.mock(s._db.document);
+		mock.expects("patch")
+			.callsArgWith(2, "DB error when patching context!!!111einself");
 
 		params = {
-			id: contextId,
+			id: "notExistingContextId",
 			properties: JSON.stringify({
 				'foo': 'bar'
 			})
 		};
 
-		s.patchContext(params, function (err, context) {
-			should.not.exist(err);
-			context._id.should.equal(contextId);
+		s.patchContext(params, function (err) {
+			err.should.match(/DB error when patching context/);
+
+			mock.restore();
 			done();
 		});
 	});
+
 });
 
