@@ -11,7 +11,7 @@ exports.current = {
 		},
 		returns: "Context information object or a message when there is no active context."
 	},
-	fn: service.currentContext
+	fn: service.currentContext.bind(service)
 };
 
 exports.activate = {
@@ -29,7 +29,7 @@ exports.activate = {
 		},
 		returns: "Returns {msg:'success', (serviceHandlerResponses:[/*messages of service resplies */ ])}  when all went fine."
 	},
-	fn: service.activateContext
+	fn: service.activateContext.bind(service)
 };
 
 exports.activateForTicket = {
@@ -48,7 +48,7 @@ exports.activateForTicket = {
 		},
 		returns: "Returns {msg:'success', (serviceHandlerResponses:[/*messages of service resplies */ ])}  when all went fine."
 	},
-	fn: service.activateContextForTicket
+	fn: service.activateContextForTicket.bind(service)
 };
 
 exports.deactivate = {
@@ -65,7 +65,7 @@ exports.deactivate = {
 		},
 		returns: "Returns an object. Property 'msg' contains always the message. It tells you whether there was no active context or that it deactivated an active context. 'context' property is `undefined` when no context was active or the same object which you get with the `current` method. `serviceHandlerResponses` are filled with responses of called services when 'onDeactivate' handlers are defined."
 	},
-	fn: service.deactivateContext
+	fn: service.deactivateContext.bind(service)
 };
 
 exports.patchContext = {
@@ -81,6 +81,5 @@ exports.patchContext = {
 		},
 		returns: "Returns an object. Property 'msg' contains always the message. It tells you whether there was no active context or that it deactivated an active context. 'context' property is `undefined` when no context was active or the same object which you get with the `current` method. `serviceHandlerResponses` are filled with responses of called services when 'onDeactivate' handlers are defined."
 	},
-	fn: service.patchContext
+	fn: service.patchContext.bind(service)
 };
-

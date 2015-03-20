@@ -65,39 +65,41 @@ function mockServiceCallWithContext (params, serviceName) {
 			shortContext = "context={name:" + context.name + "}";
 			return parsed.pathname + "?" + shortContext;
 		})
-		.get('/services/' + params.config.name + '/' + serviceName + '?context={name:my-context}')
+		.get('/services/' + params.config.name + '/' + serviceName + '?context={name:my-context}');
+}
+
+function mockServiceCallWithContextAndSucceed (params, serviceName) {
+	return mockServiceCallWithContext(params, serviceName)
 		.reply(200, {
-			service: serviceName + " reply"
+			service: {
+				msg: serviceName + " reply",
+				// each service call gives a context back, which has
+				// another foo property value.
+				context: {
+					_id: 'no-id',
+					name: 'my-context',
+					foo: serviceName + " context prop"
+				}
+			}
 		});
 }
 
 function mockServiceCallWithContextAndFail (params, serviceName, failAt, index) {
 	var scope;
 
-	scope = nock(params.url)
-		.filteringPath(function (path) {
-			// mock stringified context to short version
-			var parsed, context, shortContext;
-
-			parsed = url.parse(path, true);
-			context = JSON.parse(parsed.query.context);
-
-			if (!context || !context.name) {
-				return path;
-			}
-
-			shortContext = "context={name:" + context.name + "}";
-			return parsed.pathname + "?" + shortContext;
-		})
-		.get('/services/' + params.config.name + '/' + serviceName + '?context={name:my-context}');
+	scope = mockServiceCallWithContext(params, serviceName);
 
 	if (index === failAt) {
 		scope.reply(500, {
-			service: "wahhhh"
+			service: {
+				msg: "wahhhh"
+			}
 		});
 	} else {
 		scope.reply(200, {
-			service: serviceName + " reply"
+			service: {
+				msg: serviceName + " reply"
+			}
 		});
 	}
 
@@ -274,8 +276,10 @@ describe('Service method to activate a context', function () {
 			});
 	});
 
-	it('should call all services which are configured to run on activation.', function (done) {
-		var services, mockScopes, myParams;
+	it('should call all services which are configured to run on activation and save modified context in DB.', function (done) {
+		var services, mockScopes, myParams, contextName, dbStub;
+
+		contextName = 'my-context';
 
 		// services to call
 		services = [
@@ -287,8 +291,17 @@ describe('Service method to activate a context', function () {
 		// create mock for each service (call)
 		services.forEach(function (serviceName) {
 			var scope;
-			scope = mockServiceCallWithContext(params, serviceName);
+			scope = mockServiceCallWithContextAndSucceed(params, serviceName);
 			mockScopes.push(scope);
+		});
+
+		// mock db document API to provide error callback
+		dbStub = sinon.stub(s._db.document, "put", function (id, data, callback) {
+			id.should.equal("no-id");
+
+			// check we got a context which foo prop has the value of the last service call
+			data.foo.should.equal('testservice/task2 context prop');
+			callback();
 		});
 
 		myParams = _.cloneDeep(params);
@@ -297,9 +310,10 @@ describe('Service method to activate a context', function () {
 		};
 
 		s.activateContext(_.assign({
-			name: 'my-context'
+			name: contextName
 		}, myParams), function (err, data) {
 				var i, scope;
+				dbStub.restore();
 				should.not.exist(err);
 
 				data.msg.should.equal('success');
@@ -312,6 +326,58 @@ describe('Service method to activate a context', function () {
 					scope = mockScopes[i];
 					scope.isDone().should.equal(true);
 				}
+
+				done();
+			});
+	});
+
+	it('should call all services which are configured to run on activation and fail with DB error on context save.', function (done) {
+		var services, mockScopes, myParams, contextName, dbStub;
+
+		contextName = 'my-context';
+
+		// services to call
+		services = [
+			'testservice/task1',
+			'testservice/task2'
+		];
+		mockScopes = [];
+
+		// create mock for each service (call)
+		services.forEach(function (serviceName) {
+			var scope;
+			scope = mockServiceCallWithContextAndSucceed(params, serviceName);
+			mockScopes.push(scope);
+		});
+
+		// mock db document API to provide error callback
+		dbStub = sinon.stub(s._db.document, "put")
+			.callsArgWith(2, "DB error when putting context!!!111einself");
+
+		myParams = _.cloneDeep(params);
+		myParams.config.projectContextManager = {
+			onActivate: services
+		};
+
+		s.activateContext(_.assign({
+			name: contextName
+		}, myParams), function (err) {
+				var i, scope;
+
+				dbStub.restore();
+
+				err.should.match(/testservice\/task1 reply/);
+				err.should.match(/testservice\/task2 reply/);
+				err.should.match(/there was an error when saving context/);
+				err.should.match(/DB error when putting context!!!111einself/);
+				err.should.match(/services ran without errors/);
+
+				// check for pending mocks
+				for (i = 0; i < mockScopes.length; i++) {
+					scope = mockScopes[i];
+					scope.isDone().should.equal(true);
+				}
+
 				done();
 			});
 	});
@@ -356,7 +422,7 @@ describe('Service method to activate a context', function () {
 			});
 	});
 
-	it('should abort calling services on DB error.', function (done) {
+	it('should abort calling services when a DB error occures before.', function (done) {
 		var services, mockScopes, myParams, mock;
 
 		// services to call
@@ -398,6 +464,7 @@ describe('Service method to activate a context', function () {
 						scope.isDone().should.equal(true);
 					}
 				});
+				mock.verify();
 				mock.restore();
 				done();
 			});
@@ -642,7 +709,7 @@ describe('Service method to deactivate a context', function () {
 		s.activateContext(_.assign({
 			name: 'my-context'
 		}, params), function (err, data) {
-				var services, mockScopes, myParams;
+				var services, mockScopes, myParams, dbStub;
 
 				should.not.exist(err);
 				data.msg.should.equal('success');
@@ -658,8 +725,17 @@ describe('Service method to deactivate a context', function () {
 				// create mock for each service (call)
 				services.forEach(function (serviceName) {
 					var scope;
-					scope = mockServiceCallWithContext(params, serviceName);
+					scope = mockServiceCallWithContextAndSucceed(params, serviceName);
 					mockScopes.push(scope);
+				});
+
+				// mock db document API to provide error callback
+				dbStub = sinon.stub(s._db.document, "put", function (id, data, callback) {
+					id.should.equal("no-id");
+
+					// check we got a context which foo prop has the value of the last service call
+					data.foo.should.equal('testservice/task2 context prop');
+					callback();
 				});
 
 				myParams = _.cloneDeep(params);
@@ -668,6 +744,7 @@ describe('Service method to deactivate a context', function () {
 				};
 
 				s.deactivateContext(myParams, function (err, data) {
+					dbStub.restore();
 					should.not.exist(err);
 
 					data.msg.should.equal("Context deactivated.");
@@ -868,4 +945,3 @@ describe('Service method to patch existing context', function () {
 	});
 
 });
-
