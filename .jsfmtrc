@@ -13,5 +13,9 @@
 			"FunctionName":1,
 			"FunctionReservedWord":1
 		}
-	}
+	},
+	"plugins": [
+		"esformatter-braces",
+		"esformatter-semicolons"
+	]
 }
