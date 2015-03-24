@@ -2,6 +2,8 @@ var should = require('chai').should();
 var _ = require('lodash');
 var arango = require('arangojs');
 var sinon = require('sinon');
+var async = require('async');
+var R = require('ramda');
 var nock = require('nock');
 var url = require('url');
 
@@ -254,14 +256,75 @@ describe('Service method to activate a context', function () {
 		});
 	});
 
-	it('should return "success" when all went fine.', function (done) {
-		s.activateContext(_.assign({
+	it('should return "success" when all went fine, test with not exsting context.', function (done) {
+		var db;
+		db = s.getDb();
+		// fetch all existing contexts
+		db.simple.example(s.contextsCollectionName, {
 			name: 'my-context'
-		}, params), function (err, data) {
+		}, function (err, response) {
 				should.not.exist(err);
-				data.msg.should.equal('success');
-				should.not.exist(data.serviceHandlerResponses);
-				done();
+				// delete them
+				async.each(response.result.map(R.prop('_id')), db.document.delete, function (err) {
+					should.not.exist(err);
+					// activate context which not exists
+					s.activateContext(_.assign({
+						name: 'my-context'
+					}, params), function (err, data) {
+							should.not.exist(err);
+							data.msg.should.equal('success');
+							should.not.exist(data.serviceHandlerResponses);
+
+							// check if it is really active
+							s.currentContext(params, function (err, data) {
+								should.not.exist(err);
+								data.isActive.should.equal(true);
+								data.name.should.equal('my-context');
+								done();
+							});
+						});
+				});
+			});
+	});
+
+	it('should return "success" when all went fine, test with exsting context.', function (done) {
+		var db;
+		db = s.getDb();
+		// fetch all existing contexts
+		db.simple.example(s.contextsCollectionName, {
+			name: 'my-context'
+		}, function (err, response) {
+				should.not.exist(err);
+				// delete them
+				async.each(response.result.map(R.prop('_id')), db.document.delete, function (err) {
+					should.not.exist(err);
+					// create our not active test context
+					db.document.create(s.contextsCollectionName, {
+						name: 'my-context',
+						projectName: baseParams.config.name,
+						isActive: false
+					}, function (err, response) {
+							should.not.exist(err);
+							should.exist(response._id);
+
+							// activate it
+							s.activateContext(_.assign({
+								name: 'my-context'
+							}, params), function (err, data) {
+									should.not.exist(err);
+									data.msg.should.equal('success');
+									should.not.exist(data.serviceHandlerResponses);
+
+									// check if it is really active
+									s.currentContext(params, function (err, data) {
+										should.not.exist(err);
+										data.isActive.should.equal(true);
+										data.name.should.equal('my-context');
+										done();
+									});
+								});
+						});
+				});
 			});
 	});
 
@@ -295,7 +358,7 @@ describe('Service method to activate a context', function () {
 			mockScopes.push(scope);
 		});
 
-		// mock db document API to provide error callback
+		// mock db document API
 		dbStub = sinon.stub(s._db.document, "put", function (id, data, callback) {
 			id.should.equal("no-id");
 

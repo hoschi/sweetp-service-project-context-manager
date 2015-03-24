@@ -308,6 +308,7 @@ exports.activateContextWithProperties = function (params, contextProperties, cal
 		}.bind(this), function (context, next) {
 			if (context) {
 				// update
+				context.isActive = true;
 				this.getDb().document.patch(context._id, {
 					isActive: true
 				}, function (err, response) {
