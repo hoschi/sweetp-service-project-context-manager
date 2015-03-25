@@ -26,11 +26,13 @@ function mapWith (fn) {
 }
 
 function callServices (serviceNames, url, project, context, callback) {
-	var params, callServicesFor, serviceCalls;
+	var params, callServicesFor, serviceCalls, finalCallback, module;
 
 	if (!serviceNames || serviceNames.length <= 0) {
 		return callback(null);
 	}
+
+	module = this;
 
 	params = {
 		context: JSON.stringify(context)
@@ -39,35 +41,69 @@ function callServices (serviceNames, url, project, context, callback) {
 	// create service calls from map with service names
 	callServicesFor = mapWith(function (service) {
 		// call service specified with context, use next service call as callback
-		return function (serviceHandlerResponses, next) {
+		return function (serviceHandlerResponses, lastContext, next) {
+			if (lastContext) {
+				params.context = JSON.stringify(lastContext);
+			}
 			log.debug("{" + serviceNames + "}", "call service:", service, "params:", params);
 			sweetp.callService(url, project, service, params, false, function (err, response) {
-				serviceHandlerResponses.push(response);
-				next(err, serviceHandlerResponses);
+				var currentContext;
+				if (err) {
+					return next(err, serviceHandlerResponses, lastContext);
+				}
+
+				// successfull call, refresh props
+				serviceHandlerResponses.push(response.msg);
+				currentContext = response.context;
+
+				// call next service in list
+				next(err, serviceHandlerResponses, currentContext);
 			});
 		};
 	});
 
 	serviceCalls = [];
 
-	// initialize servicer responses
+	// initialize service responses
 	serviceCalls.push(function (next) {
-		next(null, []);
+		next(undefined, [], undefined);
 	});
 
 	// create service calls from map
 	serviceCalls = serviceCalls.concat(callServicesFor(serviceNames));
 
-	// call each service one after the other
-	async.waterfall(serviceCalls, function (err, serviceHandlerResponses) {
+	finalCallback = function (err, serviceHandlerResponses) {
 		if (err) {
+			log.error("Some service call didn't succeed:", err);
 			// add successfull service responses also to list, this way the
 			// user knows what service calls worked already
 			err = new Error(JSON.stringify(serviceHandlerResponses) + "\n" + err);
 		}
 
 		return callback(err, serviceHandlerResponses);
-	});
+	};
+
+	// call each service one after the other
+	async.waterfall(serviceCalls, function (err, serviceHandlerResponses, contextFromServiceCalls) {
+		if (contextFromServiceCalls) {
+			log.error('There is a context from some succeeded service calls, try to save it.');
+			module.getDb().document.put(contextFromServiceCalls._id, contextFromServiceCalls, module._liftDbError(function (putError) {
+				if (putError) {
+					if (!err) {
+						err = "All services ran without errors.";
+					}
+					err += "\nAdditionally there was an error when saving context from service calls!\n:" + putError.toString();
+					finalCallback(err, serviceHandlerResponses);
+				} else {
+					finalCallback(err, serviceHandlerResponses);
+				}
+
+
+			}));
+		} else {
+			finalCallback(err, serviceHandlerResponses);
+		}
+	}.bind(this));
 }
 
 // module
@@ -173,7 +209,7 @@ exports.deactivateContext = function (params, callback) {
 	projectName = params.config.name;
 	paramsLeet = leet(params);
 
-	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onDeactivate', null), params.url, projectName);
+	callServicesOnFinish = _.partial(callServices.bind(this), paramsLeet.tap('config.projectContextManager.onDeactivate', null), params.url, projectName);
 
 	async.waterfall([function (next) {
 			this._currentContext(params, next);
@@ -256,7 +292,7 @@ exports.activateContextWithProperties = function (params, contextProperties, cal
 		return callback(new Error("Can't activate context without a name for it."));
 	}
 
-	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onActivate', null), params.url, projectName);
+	callServicesOnFinish = _.partial(callServices.bind(this), paramsLeet.tap('config.projectContextManager.onActivate', null), params.url, projectName);
 
 	async.waterfall([function (next) {
 			this._currentContext(params, next);
@@ -272,6 +308,7 @@ exports.activateContextWithProperties = function (params, contextProperties, cal
 		}.bind(this), function (context, next) {
 			if (context) {
 				// update
+				context.isActive = true;
 				this.getDb().document.patch(context._id, {
 					isActive: true
 				}, function (err, response) {
@@ -351,4 +388,3 @@ exports.patchContext = function (params, callback) {
 
 	this._patchContext(params.id, params.properties, callback);
 };
-
