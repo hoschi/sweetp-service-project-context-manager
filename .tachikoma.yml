@@ -1,0 +1,5 @@
+strategy: 'david'
+# https://github.com/sanemat/tachikoma/blob/master/data/default.yaml#L17-L19
+base_remote_branch: 'origin/develop'
+# https://github.com/sanemat/tachikoma/blob/master/data/default.yaml#L31-L33
+pull_request_base: 'develop'
