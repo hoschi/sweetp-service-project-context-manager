@@ -26,8 +26,8 @@ baseParams = {
 	}
 };
 
-function deactivateCurrentContext (params, callback) {
-	s.getContexts(params.config.name, undefined, true, function (err, result) {
+function deleteCurrentContext (params, callback) {
+	s.getContexts(params.config.name, undefined, true, undefined, function (err, result) {
 		var doc;
 
 		if (err) {
@@ -46,6 +46,21 @@ function deactivateCurrentContext (params, callback) {
 			callback();
 		}
 	});
+}
+
+function deleteContextsByName (name, callback) {
+	var db;
+	db = s.getDb();
+	db.simple.example(s.contextsCollectionName, {
+		name: name
+	}, function (err, response) {
+			should.not.exist(err);
+			// delete them
+			async.each(response.result.map(R.prop('_id')), db.document.delete, function (err) {
+				should.not.exist(err);
+				callback();
+			});
+		});
 }
 
 function mockServiceCallWithContext (params, serviceName) {
@@ -243,7 +258,7 @@ describe('Service method to activate a context', function () {
 	});
 
 	afterEach(function (done) {
-		deactivateCurrentContext(params, function () {
+		deleteCurrentContext(params, function () {
 			release();
 			done();
 		});
@@ -592,7 +607,7 @@ describe('Service method to activate a context for ticket', function () {
 				data.msg.should.equal('success');
 				should.not.exist(data.serviceHandlerResponses);
 
-				s.getContexts(myParams.config.name, 'ticket/42', true, function (err, result) {
+				s.getContexts(myParams.config.name, 'ticket/42', true, undefined, function (err, result) {
 					var doc;
 
 					if (err) {
@@ -637,7 +652,7 @@ describe('Service method to activate a context for ticket', function () {
 			}
 			data.msg.should.equal('success');
 			should.not.exist(data.serviceHandlerResponses);
-			s.getContexts(myParams.config.name, 'issue/42', true, function (err, result) {
+			s.getContexts(myParams.config.name, 'issue/42', true, undefined, function (err, result) {
 				var doc;
 
 				if (err) {
@@ -672,7 +687,7 @@ describe('Service method to activate a context for ticket', function () {
 			}
 			data.msg.should.equal('success');
 			should.not.exist(data.serviceHandlerResponses);
-			s.getContexts(myParams.config.name, 'ticket/42', true, function (err, result) {
+			s.getContexts(myParams.config.name, 'ticket/42', true, undefined, function (err, result) {
 				var doc;
 
 				if (err) {
@@ -694,7 +709,7 @@ describe('Service method to activate a context for ticket', function () {
 	});
 
 	after(function (done) {
-		deactivateCurrentContext(params, done);
+		deleteCurrentContext(params, done);
 	});
 });
 
@@ -717,6 +732,7 @@ describe('Service method to deactivate a context', function () {
 		s.getDb().document.create(s.contextsCollectionName, {
 			isActive: true,
 			name: 'my-active-context',
+			isOpen: true,
 			projectName: 'test'
 		}, function (err, response) {
 				if (err) {
@@ -1005,6 +1021,352 @@ describe('Service method to patch existing context', function () {
 			mock.restore();
 			done();
 		});
+	});
+});
+
+describe('Service method to open a context', function () {
+	var params;
+	params = _.cloneDeep(baseParams);
+
+	beforeEach(function (done) {
+		s.getDb(function () {
+			checkTestExecution(done);
+		});
+	});
+
+	afterEach(function () {
+		release();
+	});
+
+	it('should fail without context name.', function (done) {
+		s.openContext(params, function (err) {
+			err.message.should.equal("Can't open context without a name for it.");
+			done();
+		});
+	});
+
+	it('should change the `isOpen` property to `true` when opening a closed context.', function (done) {
+		var contextName, db;
+
+		contextName = 'my-context';
+		db = s.getDb();
+
+		db.document.create(s.contextsCollectionName, {
+			isActive: false,
+			isOpen: false,
+			name: contextName,
+			projectName: 'test'
+		}, function (err, response) {
+				if (err) {
+					throw new Error(s._getErrorFromResponse(err, response));
+				}
+
+				params.name = contextName;
+
+				s.openContext(params, function (err, data) {
+					should.not.exist(err);
+					data.msg.should.equal('success');
+					should.not.exist(data.serviceHandlerResponses);
+
+					// check properties
+					db.simple.example(s.contextsCollectionName, {
+						name: contextName
+					}, function (err, response) {
+							var context;
+							should.not.exist(err);
+							context = _.first(response.result);
+							should.not.exist(err);
+							context.isOpen.should.equal(true);
+							context.name.should.equal(contextName);
+
+							deleteContextsByName(contextName, done);
+						});
+				});
+			});
+	});
+
+	it('should only open closed contexts.', function (done) {
+		var contextName, db;
+
+		contextName = 'my-context';
+		db = s.getDb();
+
+		db.document.create(s.contextsCollectionName, {
+			isActive: false,
+			isOpen: true,
+			name: contextName,
+			projectName: 'test'
+		}, function (err, response) {
+				if (err) {
+					throw new Error(s._getErrorFromResponse(err, response));
+				}
+
+				params.name = contextName;
+
+				s.openContext(params, function (err, data) {
+					should.not.exist(err);
+					data.msg.should.equal('No closed context to open.');
+					should.not.exist(data.serviceHandlerResponses);
+
+					// check properties
+					db.simple.example(s.contextsCollectionName, {
+						name: contextName
+					}, function (err, response) {
+							var context;
+							should.not.exist(err);
+							context = _.first(response.result);
+							should.not.exist(err);
+							context.isOpen.should.equal(true);
+							context.name.should.equal(contextName);
+
+							deleteContextsByName(contextName, done);
+						});
+				});
+			});
+	});
+
+	it('should call all services which are configured to run on opening and save modified context in DB.', function (done) {
+		var services, mockScopes, myParams, contextName, dbStub, db;
+
+		contextName = 'my-context';
+
+		// services to call
+		services = [
+			'testservice/task1',
+			'testservice/task2'
+		];
+		mockScopes = [];
+
+		// create mock for each service (call)
+		services.forEach(function (serviceName) {
+			var scope;
+			scope = mockServiceCallWithContextAndSucceed(params, serviceName);
+			mockScopes.push(scope);
+		});
+
+		// mock db document API
+		dbStub = sinon.stub(s._db.document, "put", function (id, data, callback) {
+			id.should.equal("no-id");
+
+			// check we got a context which foo prop has the value of the last service call
+			data.foo.should.equal('testservice/task2 context prop');
+			callback();
+		});
+
+		myParams = _.cloneDeep(params);
+		myParams.config.projectContextManager = {
+			onOpen: services
+		};
+
+		db = s.getDb();
+		db.document.create(s.contextsCollectionName, {
+			isActive: false,
+			isOpen: false,
+			name: contextName,
+			projectName: 'test'
+		}, function (err, response) {
+				if (err) {
+					throw new Error(s._getErrorFromResponse(err, response));
+				}
+
+				s.openContext(_.assign({
+					name: contextName
+				}, myParams), function (err, data) {
+						var i, scope;
+						dbStub.restore();
+						should.not.exist(err);
+
+						data.msg.should.equal('success');
+						data.serviceHandlerResponses.should.have.length(2);
+						data.serviceHandlerResponses[0].should.equal("testservice/task1 reply");
+						data.serviceHandlerResponses[1].should.equal("testservice/task2 reply");
+
+						// check for pending mocks
+						for (i = 0; i < mockScopes.length; i++) {
+							scope = mockScopes[i];
+							scope.isDone().should.equal(true);
+						}
+
+						deleteContextsByName(contextName, done);
+					});
+			});
+	});
+
+	it('should call all services which are configured to run on activation and fail with DB error on context save.', function (done) {
+		var services, mockScopes, myParams, contextName, dbStub, db;
+
+		contextName = 'my-context';
+
+		// services to call
+		services = [
+			'testservice/task1',
+			'testservice/task2'
+		];
+		mockScopes = [];
+
+		// create mock for each service (call)
+		services.forEach(function (serviceName) {
+			var scope;
+			scope = mockServiceCallWithContextAndSucceed(params, serviceName);
+			mockScopes.push(scope);
+		});
+
+		// mock db document API to provide error callback
+		dbStub = sinon.stub(s._db.document, "put")
+			.callsArgWith(2, "DB error when putting context!!!111einself");
+
+		myParams = _.cloneDeep(params);
+		myParams.config.projectContextManager = {
+			onOpen: services
+		};
+
+		db = s.getDb();
+		db.document.create(s.contextsCollectionName, {
+			isActive: false,
+			isOpen: false,
+			name: contextName,
+			projectName: 'test'
+		}, function (err, response) {
+				if (err) {
+					throw new Error(s._getErrorFromResponse(err, response));
+				}
+
+				s.openContext(_.assign({
+					name: contextName
+				}, myParams), function (err) {
+						var i, scope;
+
+						dbStub.restore();
+
+						err.should.match(/testservice\/task1 reply/);
+						err.should.match(/testservice\/task2 reply/);
+						err.should.match(/there was an error when saving context/);
+						err.should.match(/DB error when putting context!!!111einself/);
+						err.should.match(/services ran without errors/);
+
+						// check for pending mocks
+						for (i = 0; i < mockScopes.length; i++) {
+							scope = mockScopes[i];
+							scope.isDone().should.equal(true);
+						}
+
+						deleteContextsByName(contextName, done);
+					});
+			});
+	});
+
+	it('should abort calling services on first failed service.', function (done) {
+		var services, mockScopes, myParams, db, contextName;
+
+		// services to call
+		services = [
+			'testservice/task1',
+			'testservice/task2',
+			'testservice/task3'
+		];
+		mockScopes = [];
+		contextName = 'my-context';
+
+		// create mock for each service (call)
+		services.forEach(function (serviceName, index) {
+			var scope;
+			scope = mockServiceCallWithContextAndFail(params, serviceName, 1, index);
+			mockScopes.push(scope);
+		});
+
+		myParams = _.cloneDeep(params);
+		myParams.config.projectContextManager = {
+			onOpen: services
+		};
+
+		db = s.getDb();
+		db.document.create(s.contextsCollectionName, {
+			isActive: false,
+			isOpen: false,
+			name: contextName,
+			projectName: 'test'
+		}, function (err, response) {
+				if (err) {
+					throw new Error(s._getErrorFromResponse(err, response));
+				}
+
+				s.openContext(_.assign({
+					name: contextName
+				}, myParams), function (err) {
+						err.should.match(/wahhhh/);
+						err.should.match(/task1 reply/);
+						err.should.not.match(/task3 reply/);
+
+						// check for pending mocks
+						mockScopes.forEach(function (scope) {
+							if (scope.isDone) {
+								scope.isDone().should.equal(true);
+							}
+						});
+						deleteContextsByName(contextName, done);
+					});
+			});
+	});
+
+	it('should abort calling services when a DB error occures before.', function (done) {
+		var services, mockScopes, myParams, mock, contextName, db;
+
+		// services to call
+		services = [
+			'testservice/task1',
+			'testservice/task2',
+			'testservice/task3'
+		];
+		mockScopes = [];
+		contextName = 'my-context';
+
+		// create mock for each service (call)
+		services.forEach(function (serviceName, index) {
+			var scope;
+			scope = mockServiceCallWithContextAndFail(params, serviceName, 1, index);
+			mockScopes.push(scope);
+		});
+
+		myParams = _.cloneDeep(params);
+		myParams.config.projectContextManager = {
+			onOpen: services
+		};
+
+		db = s.getDb();
+		db.document.create(s.contextsCollectionName, {
+			isActive: false,
+			isOpen: false,
+			name: contextName,
+			projectName: 'test'
+		}, function (err, response) {
+				if (err) {
+					throw new Error(s._getErrorFromResponse(err, response));
+				}
+
+				// mock db document API to provide error callback
+				mock = sinon.mock(s._db.document);
+				mock.expects("patch")
+					.callsArgWith(2, "DB error when patching context!!!111einself");
+
+				s.openContext(_.assign({
+					name: 'my-context-which-not-exists'
+				}, myParams), function (err) {
+						err.should.match(/DB error when patching context/);
+						err.should.not.match(/task1 reply/);
+						err.should.not.match(/task3 reply/);
+						err.should.not.match(/wahhhh/);
+
+						// check for pending mocks
+						mockScopes.forEach(function (scope) {
+							if (scope.isDone) {
+								scope.isDone().should.equal(true);
+							}
+						});
+						mock.verify();
+						mock.restore();
+						deleteContextsByName(contextName, done);
+					});
+			});
 	});
 
 });
