@@ -176,7 +176,7 @@ exports.getDb = function (callback) {
 	return this._db;
 };
 
-exports.getContexts = function (projectName, name, isActive, callback) {
+exports.getContexts = function (projectName, name, isActive, isOpen, callback) {
 	var filter, env;
 
 	filter = "context.projectName == @projectName";
@@ -193,6 +193,11 @@ exports.getContexts = function (projectName, name, isActive, callback) {
 	if (isActive !== undefined) {
 		filter += " && context.isActive == @isActive";
 		env.isActive = isActive;
+	}
+
+	if (isOpen !== undefined) {
+		filter += " && context.isOpen == @isOpen";
+		env.isOpen = isOpen;
 	}
 
 	this.getDb().query.for('context').in(this.contextsCollectionName)
@@ -217,7 +222,7 @@ exports.deactivateContext = function (params, callback) {
 			if (context) {
 				// update
 				context.isActive = false;
-				this.getDb().document.patch(context._id, {
+				this._patchContext(context._id, {
 					isActive: context.isActive
 				}, function (err) {
 						next(err, context);
@@ -302,25 +307,28 @@ exports.activateContextWithProperties = function (params, contextProperties, cal
 			}
 
 			// fetch context
-			this.getContexts(projectName, name, undefined, function (err, result) {
+			this.getContexts(projectName, name, undefined, true, function (err, result) {
 				next(err, _.first(result));
 			});
 		}.bind(this), function (context, next) {
+			var updatedProperties;
+			updatedProperties = {
+				isActive: true,
+				isOpen: true
+			};
 			if (context) {
 				// update
-				context.isActive = true;
-				this.getDb().document.patch(context._id, {
-					isActive: true
-				}, function (err, response) {
-						next(this._getErrorFromResponse(err, response), context);
-					}.bind(this));
+				_.assign(context, updatedProperties);
+				this._patchContext(context._id, updatedProperties, function (err, response) {
+					next(this._getErrorFromResponse(err, response), context);
+				}.bind(this));
 			} else {
 				// create
 				context = {
 					projectName: projectName,
-					name: name,
-					isActive: true
+					name: name
 				};
+				_.assign(context, updatedProperties);
 
 				// assign properties computed already
 				_.assign(context, contextProperties);
@@ -329,7 +337,7 @@ exports.activateContextWithProperties = function (params, contextProperties, cal
 				this.getDb().document.create(this.contextsCollectionName, context, function (err, response) {
 					// check for error
 					if (err) {
-						return callback(err);
+						return callback(this._getErrorFromResponse(err, response));
 					}
 					// save id of new context in object we pass to other sevices,
 					// so they can modify it
@@ -346,7 +354,6 @@ exports.activateContextWithProperties = function (params, contextProperties, cal
 			});
 		}.bind(this)
 	], callback);
-
 };
 
 exports._currentContext = function (params, callback) {
@@ -354,7 +361,7 @@ exports._currentContext = function (params, callback) {
 
 	projectName = params.config.name;
 
-	this.getContexts(projectName, undefined, true, function (err, result) {
+	this.getContexts(projectName, undefined, true, true, function (err, result) {
 		var context;
 		context = _.first(result);
 		callback(err, context);
@@ -387,4 +394,76 @@ exports.patchContext = function (params, callback) {
 	params.properties = JSON.parse(params.properties);
 
 	this._patchContext(params.id, params.properties, callback);
+};
+
+exports._openCloseContext = function (projectName, contextName, shouldBeOpen, noContextFoundMsg, callServicesOnFinish, callback) {
+	var db;
+
+	db = this.getDb();
+	async.waterfall([function (next) {
+			this.getContexts(projectName, contextName, undefined, !shouldBeOpen, function (err, result) {
+				next(err, _.first(result));
+			});
+		}.bind(this), function (context, next) {
+			if (context) {
+				// update
+				context.isOpen = shouldBeOpen;
+				this._patchContext(context._id, {
+					isOpen: context.isOpen
+				}, function (err) {
+						next(err, context);
+					});
+			} else {
+				next(null, null);
+			}
+		}.bind(this), function (context, next) {
+			if (!context) {
+				// no open/closed context found
+				return next(null, {
+					msg: noContextFoundMsg
+				});
+			}
+
+			callServicesOnFinish(context, function (err, serviceHandlerResponses) {
+				return next(err, {
+					msg: "success",
+					context: context,
+					serviceHandlerResponses: serviceHandlerResponses
+				});
+			});
+		}.bind(this)
+	], callback);
+
+};
+
+exports.openContext = function (params, callback) {
+	var projectName, paramsLeet, callServicesOnFinish, name;
+
+	projectName = params.config.name;
+	paramsLeet = leet(params);
+	name = params.name;
+
+	if (!name) {
+		return callback(new Error("Can't open context without a name for it."));
+	}
+
+	callServicesOnFinish = _.partial(callServices.bind(this), paramsLeet.tap('config.projectContextManager.onOpen', null), params.url, projectName);
+
+	return this._openCloseContext(projectName, name, true, "No closed context to open.", callServicesOnFinish, callback);
+};
+
+exports.closeContext = function (params, callback) {
+	var projectName, paramsLeet, callServicesOnFinish, name;
+
+	projectName = params.config.name;
+	paramsLeet = leet(params);
+	name = params.name;
+
+	if (!name) {
+		return callback(new Error("Can't close context without a name for it."));
+	}
+
+	callServicesOnFinish = _.partial(callServices.bind(this), paramsLeet.tap('config.projectContextManager.onClose', null), params.url, projectName);
+
+	return this._openCloseContext(projectName, name, false, "No open context to close.", callServicesOnFinish, callback);
 };
