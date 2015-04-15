@@ -1467,7 +1467,7 @@ describe('Service method to close a context', function () {
 
 				s.closeContext(params, function (err, data) {
 					should.not.exist(err);
-					data.msg.should.equal('No closed context to close.');
+					data.msg.should.equal('No open context to close.');
 					should.not.exist(data.serviceHandlerResponses);
 
 					// check properties
@@ -1732,4 +1732,3 @@ describe('Service method to close a context', function () {
 	});
 
 });
-

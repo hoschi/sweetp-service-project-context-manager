@@ -396,28 +396,18 @@ exports.patchContext = function (params, callback) {
 	this._patchContext(params.id, params.properties, callback);
 };
 
-exports.openContext = function (params, callback) {
-	var projectName, paramsLeet, callServicesOnFinish, name, db;
-
-	projectName = params.config.name;
-	paramsLeet = leet(params);
-	name = params.name;
-
-	if (!name) {
-		return callback(new Error("Can't open context without a name for it."));
-	}
-
-	callServicesOnFinish = _.partial(callServices.bind(this), paramsLeet.tap('config.projectContextManager.onOpen', null), params.url, projectName);
+exports._openCloseContext = function (projectName, contextName, shouldBeOpen, noContextFoundMsg, callServicesOnFinish, callback) {
+	var db;
 
 	db = this.getDb();
 	async.waterfall([function (next) {
-			this.getContexts(projectName, name, undefined, false, function (err, result) {
+			this.getContexts(projectName, contextName, undefined, !shouldBeOpen, function (err, result) {
 				next(err, _.first(result));
 			});
 		}.bind(this), function (context, next) {
 			if (context) {
 				// update
-				context.isOpen = true;
+				context.isOpen = shouldBeOpen;
 				this._patchContext(context._id, {
 					isOpen: context.isOpen
 				}, function (err) {
@@ -428,9 +418,9 @@ exports.openContext = function (params, callback) {
 			}
 		}.bind(this), function (context, next) {
 			if (!context) {
-				// no closed context found
+				// no open/closed context found
 				return next(null, {
-					msg: "No closed context to open."
+					msg: noContextFoundMsg
 				});
 			}
 
@@ -446,8 +436,24 @@ exports.openContext = function (params, callback) {
 
 };
 
+exports.openContext = function (params, callback) {
+	var projectName, paramsLeet, callServicesOnFinish, name;
+
+	projectName = params.config.name;
+	paramsLeet = leet(params);
+	name = params.name;
+
+	if (!name) {
+		return callback(new Error("Can't open context without a name for it."));
+	}
+
+	callServicesOnFinish = _.partial(callServices.bind(this), paramsLeet.tap('config.projectContextManager.onOpen', null), params.url, projectName);
+
+	return this._openCloseContext(projectName, name, true, "No closed context to open.", callServicesOnFinish, callback);
+};
+
 exports.closeContext = function (params, callback) {
-	var projectName, paramsLeet, callServicesOnFinish, name, db;
+	var projectName, paramsLeet, callServicesOnFinish, name;
 
 	projectName = params.config.name;
 	paramsLeet = leet(params);
@@ -459,39 +465,5 @@ exports.closeContext = function (params, callback) {
 
 	callServicesOnFinish = _.partial(callServices.bind(this), paramsLeet.tap('config.projectContextManager.onClose', null), params.url, projectName);
 
-	db = this.getDb();
-	async.waterfall([function (next) {
-			this.getContexts(projectName, name, undefined, true, function (err, result) {
-				next(err, _.first(result));
-			});
-		}.bind(this), function (context, next) {
-			if (context) {
-				// update
-				context.isOpen = false;
-				this._patchContext(context._id, {
-					isOpen: context.isOpen
-				}, function (err) {
-						next(err, context);
-					});
-			} else {
-				next(null, null);
-			}
-		}.bind(this), function (context, next) {
-			if (!context) {
-				// no open context found
-				return next(null, {
-					msg: "No closed context to close."
-				});
-			}
-
-			callServicesOnFinish(context, function (err, serviceHandlerResponses) {
-				return next(err, {
-					msg: "success",
-					context: context,
-					serviceHandlerResponses: serviceHandlerResponses
-				});
-			});
-		}.bind(this)
-	], callback);
-
+	return this._openCloseContext(projectName, name, false, "No open context to close.", callServicesOnFinish, callback);
 };
