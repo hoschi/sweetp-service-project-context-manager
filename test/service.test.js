@@ -26,41 +26,18 @@ baseParams = {
 	}
 };
 
-function deleteCurrentContext (params, callback) {
-	s.getContexts(params.config.name, undefined, true, undefined, function (err, result) {
-		var doc;
-
-		if (err) {
-			throw err;
-		}
-		doc = _.first(result);
-
-		if (doc) {
-			s.getDb().document.delete(doc._id, function (err, response) {
-				if (err) {
-					throw new Error(s._getErrorFromResponse(err, response));
-				}
-				callback();
-			});
-		} else {
-			callback();
-		}
-	});
-}
-
-function deleteContextsByName (name, callback) {
+function deleteAllContexts (callback) {
 	var db;
 	db = s.getDb();
-	db.simple.example(s.contextsCollectionName, {
-		name: name
-	}, function (err, response) {
+	db.simple.list(s.contextsCollectionName, function (err, response) {
+		should.not.exist(err);
+
+		// delete them
+		async.each(response.result.map(R.prop('_id')), db.document.delete, function (err) {
 			should.not.exist(err);
-			// delete them
-			async.each(response.result.map(R.prop('_id')), db.document.delete, function (err) {
-				should.not.exist(err);
-				callback();
-			});
+			callback();
 		});
+	});
 }
 
 function mockServiceCallWithContext (params, serviceName) {
@@ -258,7 +235,7 @@ describe('Service method to activate a context', function () {
 	});
 
 	afterEach(function (done) {
-		deleteCurrentContext(params, function () {
+		deleteAllContexts(function () {
 			release();
 			done();
 		});
@@ -350,7 +327,15 @@ describe('Service method to activate a context', function () {
 				should.not.exist(err);
 				data.msg.should.equal('success');
 				should.not.exist(data.serviceHandlerResponses);
-				done();
+
+				s.activateContext(_.assign({
+					name: 'my-context'
+				}, params), function (err, data) {
+						should.not.exist(err);
+						data.msg.should.equal('success');
+						should.not.exist(data.serviceHandlerResponses);
+						done();
+					});
 			});
 	});
 
@@ -576,8 +561,11 @@ describe('Service method to activate a context for ticket', function () {
 		});
 	});
 
-	afterEach(function () {
-		release();
+	afterEach(function (done) {
+		deleteAllContexts(function () {
+			release();
+			done();
+		});
 	});
 
 	params = _.cloneDeep(baseParams);
@@ -707,10 +695,6 @@ describe('Service method to activate a context for ticket', function () {
 			});
 		});
 	});
-
-	after(function (done) {
-		deleteCurrentContext(params, done);
-	});
 });
 
 describe('Service method to deactivate a context', function () {
@@ -723,9 +707,13 @@ describe('Service method to deactivate a context', function () {
 		});
 	});
 
-	afterEach(function () {
-		release();
+	afterEach(function (done) {
+		deleteAllContexts(function () {
+			release();
+			done();
+		});
 	});
+
 
 	it('should return deactivated context.', function (done) {
 		// create context we can deactivate
@@ -899,8 +887,11 @@ describe('Service method to get current context', function () {
 		});
 	});
 
-	afterEach(function () {
-		release();
+	afterEach(function (done) {
+		deleteAllContexts(function () {
+			release();
+			done();
+		});
 	});
 
 	it('should return message when no context is active.', function (done) {
@@ -930,15 +921,30 @@ describe('Service method to get current context', function () {
 	});
 
 	it('should return message after deactivating current context.', function (done) {
-		s.deactivateContext(params, function (err, data) {
-			should.not.exist(err);
-			data.msg.should.equal("Context deactivated.");
-			s.currentContext(params, function (err, data) {
-				should.not.exist(err);
-				should.equal(data, "no active context");
-				done();
+		var db, contextName;
+
+		contextName = 'test';
+		db = s.getDb();
+		db.document.create(s.contextsCollectionName, {
+			isActive: true,
+			isOpen: true,
+			name: contextName,
+			projectName: 'test'
+		}, function (err, response) {
+				if (err) {
+					throw new Error(s._getErrorFromResponse(err, response));
+				}
+
+				s.deactivateContext(params, function (err, data) {
+					should.not.exist(err);
+					data.msg.should.equal("Context deactivated.");
+					s.currentContext(params, function (err, data) {
+						should.not.exist(err);
+						should.equal(data, "no active context");
+						done();
+					});
+				});
 			});
-		});
 	});
 });
 
@@ -949,8 +955,11 @@ describe('Service method to patch existing context', function () {
 		});
 	});
 
-	afterEach(function () {
-		release();
+	afterEach(function (done) {
+		deleteAllContexts(function () {
+			release();
+			done();
+		});
 	});
 
 	it('fails without contex id.', function (done) {
@@ -1034,8 +1043,11 @@ describe('Service method to open a context', function () {
 		});
 	});
 
-	afterEach(function () {
-		release();
+	afterEach(function (done) {
+		deleteAllContexts(function () {
+			release();
+			done();
+		});
 	});
 
 	it('should fail without context name.', function (done) {
@@ -1079,7 +1091,7 @@ describe('Service method to open a context', function () {
 							context.isOpen.should.equal(true);
 							context.name.should.equal(contextName);
 
-							deleteContextsByName(contextName, done);
+							deleteAllContexts(done);
 						});
 				});
 			});
@@ -1119,7 +1131,7 @@ describe('Service method to open a context', function () {
 							context.isOpen.should.equal(true);
 							context.name.should.equal(contextName);
 
-							deleteContextsByName(contextName, done);
+							deleteAllContexts(done);
 						});
 				});
 			});
@@ -1187,7 +1199,7 @@ describe('Service method to open a context', function () {
 							scope.isDone().should.equal(true);
 						}
 
-						deleteContextsByName(contextName, done);
+						deleteAllContexts(done);
 					});
 			});
 	});
@@ -1250,7 +1262,7 @@ describe('Service method to open a context', function () {
 							scope.isDone().should.equal(true);
 						}
 
-						deleteContextsByName(contextName, done);
+						deleteAllContexts(done);
 					});
 			});
 	});
@@ -1303,7 +1315,7 @@ describe('Service method to open a context', function () {
 								scope.isDone().should.equal(true);
 							}
 						});
-						deleteContextsByName(contextName, done);
+						deleteAllContexts(done);
 					});
 			});
 	});
@@ -1364,7 +1376,7 @@ describe('Service method to open a context', function () {
 						});
 						mock.verify();
 						mock.restore();
-						deleteContextsByName(contextName, done);
+						deleteAllContexts(done);
 					});
 			});
 	});
