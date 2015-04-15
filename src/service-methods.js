@@ -86,6 +86,24 @@ exports.open = {
 	fn: service.openContext.bind(service)
 };
 
+exports.close = {
+	options: {
+		params: {
+			url: sweetp.PARAMETER_TYPES.url,
+			config: sweetp.PARAMETER_TYPES.projectConfig,
+			name: sweetp.PARAMETER_TYPES.one
+		},
+		description: {
+			summary: "Closes an open context by name.",
+			config: [
+				"(onClose String[]): service names to call when closing a context, each service call gets one parameter 'context' with the stringified JSON of the context to close."
+			]
+		},
+		returns: "Returns an object. Property 'msg' contains always the message. It tells you whether there was no open context or that it closed an open context. 'context' property is `undefined` when no context was found to close. `serviceHandlerResponses` are filled with responses of called services when 'onDeactivate' handlers are defined."
+	},
+	fn: service.closeContext.bind(service)
+};
+
 exports.patchContext = {
 	options: {
 		params: {
