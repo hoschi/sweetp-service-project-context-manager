@@ -1,31 +1,17 @@
 var should = require('chai').should();
 var _ = require('lodash');
-var arango = require('arangojs');
 var sinon = require('sinon');
 var async = require('async');
 var R = require('ramda');
 var nock = require('nock');
 var url = require('url');
 var syncTests = require('./helper/syncTests');
+var testConditions = require('./helper/testConditions');
 
 var s = require('../src/service');
 
-var testDbUrl, testDbName, nconfDefaults, baseParams;
-
-testDbName = 'sweetpUnittest';
-testDbUrl = 'http://localhost:8529/';
-// override defaults
-nconfDefaults = {
-	dbConnection: testDbUrl + testDbName
-};
-s.nconf.defaults(nconfDefaults);
-
-baseParams = {
-	url: 'http://localhost:1234/',
-	config: {
-		name: 'test'
-	}
-};
+var baseParams = testConditions.getBaseParams();
+testConditions.configureService(s);
 
 function deleteAllContexts (callback) {
 	var db;
@@ -101,28 +87,7 @@ function mockServiceCallWithContextAndFail (params, serviceName, failAt, index) 
 	return scope;
 }
 
-before(function (done) {
-	var db;
-	// recreate db
-
-	db = arango.Connection(testDbUrl);
-	db.database.delete(testDbName, function (err, response) {
-		// can't delete not existing db
-		if (err && response.code !== 404) {
-			throw new Error(response.errorMessage);
-		}
-
-		db.database.create(testDbName, [{
-			username: 'test'
-		}], function (err, response) {
-				if (err) {
-					throw new Error(response.errorMessage);
-				}
-
-				done();
-			});
-	});
-});
+before(testConditions.recreateDb.bind(testConditions));
 
 describe('Response error helper', function () {
 	it('should handle also normal errors.', function () {
@@ -163,7 +128,7 @@ describe('DB connection', function () {
 			db.should.be.a('object');
 			err.message.should.match(/database not found/);
 
-			s.nconf.defaults(nconfDefaults);
+			testConditions.configureService(s);
 			delete s._db;
 			done();
 		});
@@ -175,7 +140,7 @@ describe('DB connection', function () {
 
 		db = s.getDb();
 		db.should.be.a('object');
-		s.nconf.defaults(nconfDefaults);
+		testConditions.configureService(s);
 		delete s._db;
 		done();
 	});
