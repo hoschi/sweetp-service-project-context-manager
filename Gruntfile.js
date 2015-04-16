@@ -20,7 +20,8 @@ module.exports = function (grunt) {
 				src: ['src/**/*.js']
 			},
 			test: {
-				src: ['test/**/*.js']
+				src: ['test/**/*.test.js'],
+				helper: ['test/helper/**/*.js']
 			}
 		},
 		codeclimate: {
@@ -64,7 +65,8 @@ module.exports = function (grunt) {
 			test: {
 				files: [
 					'<%= jshint.src.src %>',
-					'<%= jshint.test.src %>'
+					'<%= jshint.test.src %>',
+					'<%= jshint.test.helper %>'
 				],
 				tasks: ['jshint', 'mochacov:unit']
 			},

@@ -6,6 +6,7 @@ var async = require('async');
 var R = require('ramda');
 var nock = require('nock');
 var url = require('url');
+var syncTests = require('./helper/syncTests');
 
 var s = require('../src/service');
 
@@ -100,25 +101,6 @@ function mockServiceCallWithContextAndFail (params, serviceName, failAt, index) 
 	return scope;
 }
 
-var blocked = false;
-var release;
-function checkTestExecution (done) {
-	if (blocked) {
-		release = function () {
-			blocked = false;
-			nock.cleanAll();
-			done();
-		};
-	} else {
-		blocked = true;
-		release = function () {
-			blocked = false;
-			nock.cleanAll();
-		};
-		done();
-	}
-}
-
 before(function (done) {
 	var db;
 	// recreate db
@@ -160,12 +142,12 @@ describe('DB connection', function () {
 
 	beforeEach(function (done) {
 		sinon.stub(console, "error", function () {});
-		checkTestExecution(done);
+		syncTests.start(done);
 	});
 
 	afterEach(function () {
 		console.error.restore();
-		release();
+		syncTests.stop();
 	});
 
 	it('string can be overriden.', function (done) {
@@ -229,14 +211,15 @@ describe('Service method to activate a context', function () {
 
 	// init DB one every test, so we can mock it
 	beforeEach(function (done) {
-		s.getDb(function () {
-			checkTestExecution(done);
+		syncTests.start(function () {
+			s.getDb(done);
 		});
 	});
 
 	afterEach(function (done) {
 		deleteAllContexts(function () {
-			release();
+			nock.cleanAll();
+			syncTests.stop();
 			done();
 		});
 	});
@@ -556,14 +539,15 @@ describe('Service method to activate a context for ticket', function () {
 	var params;
 
 	beforeEach(function (done) {
-		s.getDb(function () {
-			checkTestExecution(done);
+		syncTests.start(function () {
+			s.getDb(done);
 		});
 	});
 
 	afterEach(function (done) {
 		deleteAllContexts(function () {
-			release();
+			nock.cleanAll();
+			syncTests.stop();
 			done();
 		});
 	});
@@ -702,14 +686,15 @@ describe('Service method to deactivate a context', function () {
 	params = _.cloneDeep(baseParams);
 
 	beforeEach(function (done) {
-		s.getDb(function () {
-			checkTestExecution(done);
+		syncTests.start(function () {
+			s.getDb(done);
 		});
 	});
 
 	afterEach(function (done) {
 		deleteAllContexts(function () {
-			release();
+			nock.cleanAll();
+			syncTests.stop();
 			done();
 		});
 	});
@@ -882,14 +867,15 @@ describe('Service method to get current context', function () {
 	params = _.cloneDeep(baseParams);
 
 	beforeEach(function (done) {
-		s.getDb(function () {
-			checkTestExecution(done);
+		syncTests.start(function () {
+			s.getDb(done);
 		});
 	});
 
 	afterEach(function (done) {
 		deleteAllContexts(function () {
-			release();
+			nock.cleanAll();
+			syncTests.stop();
 			done();
 		});
 	});
@@ -950,14 +936,15 @@ describe('Service method to get current context', function () {
 
 describe('Service method to patch existing context', function () {
 	beforeEach(function (done) {
-		s.getDb(function () {
-			checkTestExecution(done);
+		syncTests.start(function () {
+			s.getDb(done);
 		});
 	});
 
 	afterEach(function (done) {
 		deleteAllContexts(function () {
-			release();
+			nock.cleanAll();
+			syncTests.stop();
 			done();
 		});
 	});
@@ -1038,14 +1025,15 @@ describe('Service method to open a context', function () {
 	params = _.cloneDeep(baseParams);
 
 	beforeEach(function (done) {
-		s.getDb(function () {
-			checkTestExecution(done);
+		syncTests.start(function () {
+			s.getDb(done);
 		});
 	});
 
 	afterEach(function (done) {
 		deleteAllContexts(function () {
-			release();
+			nock.cleanAll();
+			syncTests.stop();
 			done();
 		});
 	});
@@ -1388,14 +1376,15 @@ describe('Service method to close a context', function () {
 	params = _.cloneDeep(baseParams);
 
 	beforeEach(function (done) {
-		s.getDb(function () {
-			checkTestExecution(done);
+		syncTests.start(function () {
+			s.getDb(done);
 		});
 	});
 
 	afterEach(function (done) {
 		deleteAllContexts(function () {
-			release();
+			nock.cleanAll();
+			syncTests.stop();
 			done();
 		});
 	});

@@ -21,15 +21,16 @@
     "tickets"
   ],
   "devDependencies": {
+    "chai": "~1.9.1",
+    "grunt-codeclimate": "0.0.1-1",
     "grunt-contrib-jshint": "^0.10.0",
     "grunt-contrib-watch": "^0.6.1",
-    "load-grunt-tasks": "^0.4.0",
-    "jshint-stylish": "^0.2.0",
     "grunt-mocha-cov": "~0.2.1",
-    "chai": "~1.9.1",
-    "sinon": "~1.10.3",
-    "grunt-codeclimate": "0.0.1-1",
-    "nock": "~0.46.0"
+    "jshint-stylish": "^0.2.0",
+    "load-grunt-tasks": "^0.4.0",
+    "nock": "~0.46.0",
+    "semaphore": "^1.0.2",
+    "sinon": "~1.10.3"
   },
   "dependencies": {
     "arangojs": "~1.0.0",
