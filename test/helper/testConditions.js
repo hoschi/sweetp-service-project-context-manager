@@ -13,15 +13,22 @@ exports.getBaseParams = function () {
 	});
 };
 
-exports.configureService = function (serviceInstance) {
-	serviceInstance.nconf.defaults({
+exports.configureService = function (serviceInstance, callback) {
+	var nconf;
+
+	nconf = serviceInstance.__get__('nconf');
+	nconf.defaults({
 		dbConnection: this.testDbUrl + this.testDbName
 	});
+	serviceInstance.__set__('db', serviceInstance.__get__("initDb")(callback));
+};
+
+exports.getDb = function () {
+	return arango.Connection(this.testDbUrl + this.testDbName);
 };
 
 exports.recreateDb = function (done) {
 	var db;
-	// recreate db
 
 	db = arango.Connection(this.testDbUrl);
 	db.database.delete(this.testDbName, function (err, response) {

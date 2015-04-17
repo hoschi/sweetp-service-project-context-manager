@@ -5,18 +5,20 @@ var async = require('async');
 var R = require('ramda');
 var nock = require('nock');
 var url = require('url');
+var rewire = require('rewire');
+
 var syncTests = require('./helper/syncTests');
 var testConditions = require('./helper/testConditions');
 
-var s = require('../src/service');
+var s = rewire('../src/service');
 
 var baseParams = testConditions.getBaseParams();
 testConditions.configureService(s);
 
 function deleteAllContexts (callback) {
 	var db;
-	db = s.getDb();
-	db.simple.list(s.contextsCollectionName, function (err, response) {
+	db = s.__get__('db');
+	db.simple.list(s.__get__('dbHelper').contextsCollectionName, function (err, response) {
 		should.not.exist(err);
 
 		// delete them
@@ -87,14 +89,6 @@ function mockServiceCallWithContextAndFail (params, serviceName, failAt, index) 
 	return scope;
 }
 
-before(testConditions.recreateDb.bind(testConditions));
-
-describe('Response error helper', function () {
-	it('should handle also normal errors.', function () {
-		s._getErrorFromResponse("my error").message.should.match(/my error/);
-	});
-});
-
 describe('Service method to activate a context', function () {
 	var params;
 	params = _.cloneDeep(baseParams);
@@ -102,7 +96,7 @@ describe('Service method to activate a context', function () {
 	// init DB one every test, so we can mock it
 	beforeEach(function (done) {
 		syncTests.start(function () {
-			s.getDb(done);
+			testConditions.configureService(s, done);
 		});
 	});
 
@@ -123,9 +117,9 @@ describe('Service method to activate a context', function () {
 
 	it('should return "success" when all went fine, test with not exsting context.', function (done) {
 		var db;
-		db = s.getDb();
+		db = s.__get__('db');
 		// fetch all existing contexts
-		db.simple.example(s.contextsCollectionName, {
+		db.simple.example(s.__get__('dbHelper').contextsCollectionName, {
 			name: 'my-context'
 		}, function (err, response) {
 				should.not.exist(err);
@@ -154,9 +148,9 @@ describe('Service method to activate a context', function () {
 
 	it('should return "success" when all went fine, test with exsting context.', function (done) {
 		var db;
-		db = s.getDb();
+		db = s.__get__('db');
 		// fetch all existing contexts
-		db.simple.example(s.contextsCollectionName, {
+		db.simple.example(s.__get__('dbHelper').contextsCollectionName, {
 			name: 'my-context'
 		}, function (err, response) {
 				should.not.exist(err);
@@ -164,7 +158,7 @@ describe('Service method to activate a context', function () {
 				async.each(response.result.map(R.prop('_id')), db.document.delete, function (err) {
 					should.not.exist(err);
 					// create our not active test context
-					db.document.create(s.contextsCollectionName, {
+					db.document.create(s.__get__('dbHelper').contextsCollectionName, {
 						name: 'my-context',
 						projectName: baseParams.config.name,
 						isActive: false
@@ -232,7 +226,7 @@ describe('Service method to activate a context', function () {
 		});
 
 		// mock db document API
-		dbStub = sinon.stub(s._db.document, "put", function (id, data, callback) {
+		dbStub = sinon.stub(s.__get__('db').document, "put", function (id, data, callback) {
 			id.should.equal("no-id");
 
 			// check we got a context which foo prop has the value of the last service call
@@ -287,7 +281,7 @@ describe('Service method to activate a context', function () {
 		});
 
 		// mock db document API to provide error callback
-		dbStub = sinon.stub(s._db.document, "put")
+		dbStub = sinon.stub(s.__get__('db').document, "put")
 			.callsArgWith(2, "DB error when putting context!!!111einself");
 
 		myParams = _.cloneDeep(params);
@@ -377,7 +371,7 @@ describe('Service method to activate a context', function () {
 		});
 
 		// mock db document API to provide error callback
-		mock = sinon.mock(s._db.document);
+		mock = sinon.mock(s.__get__('db').document);
 		mock.expects("create")
 			.callsArgWith(2, "DB error when creating context!!!111einself");
 
@@ -430,7 +424,7 @@ describe('Service method to activate a context for ticket', function () {
 
 	beforeEach(function (done) {
 		syncTests.start(function () {
-			s.getDb(done);
+			testConditions.configureService(s, done);
 		});
 	});
 
@@ -478,7 +472,7 @@ describe('Service method to activate a context for ticket', function () {
 					doc = _.first(result);
 					doc.name.should.equal('ticket/42');
 					doc.ticketId.should.equal('42');
-					s.getDb().document.delete(doc._id, function (err) {
+					s.__get__('db').document.delete(doc._id, function (err) {
 						if (err) {
 							throw err;
 						}
@@ -524,7 +518,7 @@ describe('Service method to activate a context for ticket', function () {
 				doc = _.first(result);
 				doc.name.should.equal('issue/42');
 				doc.ticketId.should.equal('42');
-				s.getDb().document.delete(doc._id, function (err) {
+				s.__get__('db').document.delete(doc._id, function (err) {
 					if (err) {
 						throw err;
 					}
@@ -559,7 +553,7 @@ describe('Service method to activate a context for ticket', function () {
 				doc = _.first(result);
 				doc.name.should.equal('ticket/42');
 				doc.ticketId.should.equal('42');
-				s.getDb().document.delete(doc._id, function (err) {
+				s.__get__('db').document.delete(doc._id, function (err) {
 					if (err) {
 						throw err;
 					}
@@ -577,7 +571,7 @@ describe('Service method to deactivate a context', function () {
 
 	beforeEach(function (done) {
 		syncTests.start(function () {
-			s.getDb(done);
+			testConditions.configureService(s, done);
 		});
 	});
 
@@ -592,7 +586,7 @@ describe('Service method to deactivate a context', function () {
 
 	it('should return deactivated context.', function (done) {
 		// create context we can deactivate
-		s.getDb().document.create(s.contextsCollectionName, {
+		s.__get__('db').document.create(s.__get__('dbHelper').contextsCollectionName, {
 			isActive: true,
 			name: 'my-active-context',
 			isOpen: true,
@@ -672,7 +666,7 @@ describe('Service method to deactivate a context', function () {
 				});
 
 				// mock db document API to provide error callback
-				dbStub = sinon.stub(s._db.document, "put", function (id, data, callback) {
+				dbStub = sinon.stub(s.__get__('db').document, "put", function (id, data, callback) {
 					id.should.equal("no-id");
 
 					// check we got a context which foo prop has the value of the last service call
@@ -756,9 +750,18 @@ describe('Service method to get current context', function () {
 	var params;
 	params = _.cloneDeep(baseParams);
 
+before(function (done) {
+	syncTests.start(function () {
+		testConditions.recreateDb(function () {
+			syncTests.stop();
+			done();
+		});
+	});
+});
+
 	beforeEach(function (done) {
 		syncTests.start(function () {
-			s.getDb(done);
+			testConditions.configureService(s, done);
 		});
 	});
 
@@ -800,8 +803,8 @@ describe('Service method to get current context', function () {
 		var db, contextName;
 
 		contextName = 'test';
-		db = s.getDb();
-		db.document.create(s.contextsCollectionName, {
+		db = s.__get__('db');
+		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
 			isActive: true,
 			isOpen: true,
 			name: contextName,
@@ -827,7 +830,7 @@ describe('Service method to get current context', function () {
 describe('Service method to patch existing context', function () {
 	beforeEach(function (done) {
 		syncTests.start(function () {
-			s.getDb(done);
+			testConditions.configureService(s, done);
 		});
 	});
 
@@ -860,7 +863,7 @@ describe('Service method to patch existing context', function () {
 	});
 
 	it('returns patched context response when successfull.', function (done) {
-		s.getDb().document.create(s.contextsCollectionName, {
+		s.__get__('db').document.create(s.__get__('dbHelper').contextsCollectionName, {
 			isActive: true,
 			name: 'my-active-context',
 			projectName: 'test'
@@ -890,7 +893,7 @@ describe('Service method to patch existing context', function () {
 		var mock, params;
 
 		// mock db document API to provide error callback
-		mock = sinon.mock(s._db.document);
+		mock = sinon.mock(s.__get__('db').document);
 		mock.expects("patch")
 			.callsArgWith(2, "DB error when patching context!!!111einself");
 
@@ -916,7 +919,7 @@ describe('Service method to open a context', function () {
 
 	beforeEach(function (done) {
 		syncTests.start(function () {
-			s.getDb(done);
+			testConditions.configureService(s, done);
 		});
 	});
 
@@ -939,9 +942,9 @@ describe('Service method to open a context', function () {
 		var contextName, db;
 
 		contextName = 'my-context';
-		db = s.getDb();
+		db = s.__get__('db');
 
-		db.document.create(s.contextsCollectionName, {
+		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
 			isActive: false,
 			isOpen: false,
 			name: contextName,
@@ -959,7 +962,7 @@ describe('Service method to open a context', function () {
 					should.not.exist(data.serviceHandlerResponses);
 
 					// check properties
-					db.simple.example(s.contextsCollectionName, {
+					db.simple.example(s.__get__('dbHelper').contextsCollectionName, {
 						name: contextName
 					}, function (err, response) {
 							var context;
@@ -979,9 +982,9 @@ describe('Service method to open a context', function () {
 		var contextName, db;
 
 		contextName = 'my-context';
-		db = s.getDb();
+		db = s.__get__('db');
 
-		db.document.create(s.contextsCollectionName, {
+		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
 			isActive: false,
 			isOpen: true,
 			name: contextName,
@@ -999,7 +1002,7 @@ describe('Service method to open a context', function () {
 					should.not.exist(data.serviceHandlerResponses);
 
 					// check properties
-					db.simple.example(s.contextsCollectionName, {
+					db.simple.example(s.__get__('dbHelper').contextsCollectionName, {
 						name: contextName
 					}, function (err, response) {
 							var context;
@@ -1035,7 +1038,7 @@ describe('Service method to open a context', function () {
 		});
 
 		// mock db document API
-		dbStub = sinon.stub(s._db.document, "put", function (id, data, callback) {
+		dbStub = sinon.stub(s.__get__('db').document, "put", function (id, data, callback) {
 			id.should.equal("no-id");
 
 			// check we got a context which foo prop has the value of the last service call
@@ -1048,8 +1051,8 @@ describe('Service method to open a context', function () {
 			onOpen: services
 		};
 
-		db = s.getDb();
-		db.document.create(s.contextsCollectionName, {
+		db = s.__get__('db');
+		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
 			isActive: false,
 			isOpen: false,
 			name: contextName,
@@ -1102,7 +1105,7 @@ describe('Service method to open a context', function () {
 		});
 
 		// mock db document API to provide error callback
-		dbStub = sinon.stub(s._db.document, "put")
+		dbStub = sinon.stub(s.__get__('db').document, "put")
 			.callsArgWith(2, "DB error when putting context!!!111einself");
 
 		myParams = _.cloneDeep(params);
@@ -1110,8 +1113,8 @@ describe('Service method to open a context', function () {
 			onOpen: services
 		};
 
-		db = s.getDb();
-		db.document.create(s.contextsCollectionName, {
+		db = s.__get__('db');
+		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
 			isActive: false,
 			isOpen: false,
 			name: contextName,
@@ -1169,8 +1172,8 @@ describe('Service method to open a context', function () {
 			onOpen: services
 		};
 
-		db = s.getDb();
-		db.document.create(s.contextsCollectionName, {
+		db = s.__get__('db');
+		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
 			isActive: false,
 			isOpen: false,
 			name: contextName,
@@ -1222,8 +1225,8 @@ describe('Service method to open a context', function () {
 			onOpen: services
 		};
 
-		db = s.getDb();
-		db.document.create(s.contextsCollectionName, {
+		db = s.__get__('db');
+		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
 			isActive: false,
 			isOpen: false,
 			name: contextName,
@@ -1234,7 +1237,7 @@ describe('Service method to open a context', function () {
 				}
 
 				// mock db document API to provide error callback
-				mock = sinon.mock(s._db.document);
+				mock = sinon.mock(s.__get__('db').document);
 				mock.expects("patch")
 					.callsArgWith(2, "DB error when patching context!!!111einself");
 
@@ -1267,7 +1270,7 @@ describe('Service method to close a context', function () {
 
 	beforeEach(function (done) {
 		syncTests.start(function () {
-			s.getDb(done);
+			testConditions.configureService(s, done);
 		});
 	});
 
@@ -1290,9 +1293,9 @@ describe('Service method to close a context', function () {
 		var contextName, db;
 
 		contextName = 'my-context';
-		db = s.getDb();
+		db = s.__get__('db');
 
-		db.document.create(s.contextsCollectionName, {
+		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
 			isActive: false,
 			isOpen: true,
 			name: contextName,
@@ -1310,7 +1313,7 @@ describe('Service method to close a context', function () {
 					should.not.exist(data.serviceHandlerResponses);
 
 					// check properties
-					db.simple.example(s.contextsCollectionName, {
+					db.simple.example(s.__get__('dbHelper').contextsCollectionName, {
 						name: contextName
 					}, function (err, response) {
 							var context;
@@ -1330,9 +1333,9 @@ describe('Service method to close a context', function () {
 		var contextName, db;
 
 		contextName = 'my-context';
-		db = s.getDb();
+		db = s.__get__('db');
 
-		db.document.create(s.contextsCollectionName, {
+		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
 			isActive: false,
 			isOpen: false,
 			name: contextName,
@@ -1350,7 +1353,7 @@ describe('Service method to close a context', function () {
 					should.not.exist(data.serviceHandlerResponses);
 
 					// check properties
-					db.simple.example(s.contextsCollectionName, {
+					db.simple.example(s.__get__('dbHelper').contextsCollectionName, {
 						name: contextName
 					}, function (err, response) {
 							var context;
@@ -1386,7 +1389,7 @@ describe('Service method to close a context', function () {
 		});
 
 		// mock db document API
-		dbStub = sinon.stub(s._db.document, "put", function (id, data, callback) {
+		dbStub = sinon.stub(s.__get__('db').document, "put", function (id, data, callback) {
 			id.should.equal("no-id");
 
 			// check we got a context which foo prop has the value of the last service call
@@ -1399,8 +1402,8 @@ describe('Service method to close a context', function () {
 			onClose: services
 		};
 
-		db = s.getDb();
-		db.document.create(s.contextsCollectionName, {
+		db = s.__get__('db');
+		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
 			isActive: false,
 			isOpen: true,
 			name: contextName,
@@ -1453,7 +1456,7 @@ describe('Service method to close a context', function () {
 		});
 
 		// mock db document API to provide error callback
-		dbStub = sinon.stub(s._db.document, "put")
+		dbStub = sinon.stub(s.__get__('db').document, "put")
 			.callsArgWith(2, "DB error when putting context!!!111einself");
 
 		myParams = _.cloneDeep(params);
@@ -1461,8 +1464,8 @@ describe('Service method to close a context', function () {
 			onClose: services
 		};
 
-		db = s.getDb();
-		db.document.create(s.contextsCollectionName, {
+		db = s.__get__('db');
+		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
 			isActive: false,
 			isOpen: true,
 			name: contextName,
@@ -1520,8 +1523,8 @@ describe('Service method to close a context', function () {
 			onClose: services
 		};
 
-		db = s.getDb();
-		db.document.create(s.contextsCollectionName, {
+		db = s.__get__('db');
+		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
 			isActive: false,
 			isOpen: true,
 			name: contextName,
@@ -1573,8 +1576,8 @@ describe('Service method to close a context', function () {
 			onClose: services
 		};
 
-		db = s.getDb();
-		db.document.create(s.contextsCollectionName, {
+		db = s.__get__('db');
+		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
 			isActive: false,
 			isOpen: true,
 			name: contextName,
@@ -1585,7 +1588,7 @@ describe('Service method to close a context', function () {
 				}
 
 				// mock db document API to provide error callback
-				mock = sinon.mock(s._db.document);
+				mock = sinon.mock(s.__get__('db').document);
 				mock.expects("patch")
 					.callsArgWith(2, "DB error when patching context!!!111einself");
 
