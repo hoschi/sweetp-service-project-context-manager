@@ -6,6 +6,7 @@ var log = require('./log');
 var dbHelper = require('./dbHelper');
 var dbAbstraction = require('./dbAbstraction');
 var callServices = require('./callServices');
+var paramAssertions = require('./paramAssertions');
 
 // setup configuration hierarchy: environment, args, defaults
 nconf.env().argv();
@@ -24,7 +25,6 @@ initDb = function (callback) {
 };
 db = initDb();
 
-// module
 exports.deactivateContext = function (params, callback) {
 	var projectName, paramsLeet, callServicesOnFinish;
 
@@ -99,9 +99,9 @@ exports.activateContextForTicket = function (params, callback) {
 	this.activateContextWithProperties(params, contextProperties, callback);
 };
 
-exports.activateContext = function (params, callback) {
+exports.activateContext = paramAssertions.needsContextNameInParams('activate', function (params, callback) {
 	return this.activateContextWithProperties(params, undefined, callback);
-};
+});
 
 exports.activateContextWithProperties = function (params, contextProperties, callback) {
 	var projectName, name, callServicesOnFinish, paramsLeet;
@@ -109,10 +109,6 @@ exports.activateContextWithProperties = function (params, contextProperties, cal
 	projectName = params.config.name;
 	name = params.name;
 	paramsLeet = leet(params);
-
-	if (!name) {
-		return callback(new Error("Can't activate context without a name for it."));
-	}
 
 	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onActivate', null), db, params.url, projectName);
 
@@ -183,21 +179,22 @@ exports.currentContext = function (params, callback) {
 	});
 };
 
-exports.patchContext = function (params, callback) {
-	if (!params.id) {
-		return callback(new Error("No context id provided!"));
-	}
-
-	if (!params.properties) {
-		return callback(new Error("No properties provided!"));
-	}
+exports.patchContext = paramAssertions.patchContextAssertions(function (params, callback) {
 	log.debug("patch context:", params.id, "props:", params.properties);
 	params.properties = JSON.parse(params.properties);
 
 	db.document.patch(params.id, params.properties, dbHelper.liftDbError(callback));
-};
+});
 
-exports._openCloseContext = function (projectName, contextName, shouldBeOpen, noContextFoundMsg, callServicesOnFinish, callback) {
+exports._openCloseContext = function (params, shouldBeOpen, eventHandlerPropertyName, noContextFoundMsg, callback) {
+	var projectName, paramsLeet, callServicesOnFinish, contextName;
+
+	projectName = params.config.name;
+	paramsLeet = leet(params);
+	contextName = params.name;
+
+	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.' + eventHandlerPropertyName, null), db, params.url, projectName);
+
 	async.waterfall([function (next) {
 			dbAbstraction.getContexts(db, projectName, contextName, undefined, !shouldBeOpen, function (err, result) {
 				next(err, _.first(result));
@@ -234,34 +231,10 @@ exports._openCloseContext = function (projectName, contextName, shouldBeOpen, no
 
 };
 
-exports.openContext = function (params, callback) {
-	var projectName, paramsLeet, callServicesOnFinish, name;
+exports.openContext = paramAssertions.needsContextNameInParams('open', function (params, callback) {
+	return this._openCloseContext(params, true, 'onOpen', "No closed context to open.", callback);
+});
 
-	projectName = params.config.name;
-	paramsLeet = leet(params);
-	name = params.name;
-
-	if (!name) {
-		return callback(new Error("Can't open context without a name for it."));
-	}
-
-	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onOpen', null), db, params.url, projectName);
-
-	return this._openCloseContext(projectName, name, true, "No closed context to open.", callServicesOnFinish, callback);
-};
-
-exports.closeContext = function (params, callback) {
-	var projectName, paramsLeet, callServicesOnFinish, name;
-
-	projectName = params.config.name;
-	paramsLeet = leet(params);
-	name = params.name;
-
-	if (!name) {
-		return callback(new Error("Can't close context without a name for it."));
-	}
-
-	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onClose', null), db, params.url, projectName);
-
-	return this._openCloseContext(projectName, name, false, "No open context to close.", callServicesOnFinish, callback);
-};
+exports.closeContext = paramAssertions.needsContextNameInParams('close', function (params, callback) {
+	return this._openCloseContext(params, false, 'onClose', "No open context to close.", callback);
+});
