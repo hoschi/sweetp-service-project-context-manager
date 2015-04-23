@@ -1,11 +1,11 @@
 var async = require('async');
 var _ = require('lodash');
 var nconf = require('nconf');
-var sweetp = require('sweetp-base');
 var leet = require('l33teral');
 var log = require('./log');
 var dbHelper = require('./dbHelper');
 var dbAbstraction = require('./dbAbstraction');
+var callServices = require('./callServices');
 
 // setup configuration hierarchy: environment, args, defaults
 nconf.env().argv();
@@ -24,91 +24,6 @@ initDb = function (callback) {
 };
 db = initDb();
 
-function mapWith (fn) {
-	return function (list) {
-		return _.map(list, fn);
-	};
-}
-
-function callServices (serviceNames, url, project, context, callback) {
-	var params, callServicesFor, serviceCalls, finalCallback;
-
-	if (!serviceNames || serviceNames.length <= 0) {
-		return callback(null);
-	}
-
-	params = {
-		context: JSON.stringify(context)
-	};
-
-	// create service calls from map with service names
-	callServicesFor = mapWith(function (service) {
-		// call service specified with context, use next service call as callback
-		return function (serviceHandlerResponses, lastContext, next) {
-			if (lastContext) {
-				params.context = JSON.stringify(lastContext);
-			}
-			log.debug("{" + serviceNames + "}", "call service:", service, "params:", params);
-			sweetp.callService(url, project, service, params, false, function (err, response) {
-				var currentContext;
-				if (err) {
-					return next(err, serviceHandlerResponses, lastContext);
-				}
-
-				// successfull call, refresh props
-				serviceHandlerResponses.push(response.msg);
-				currentContext = response.context;
-
-				// call next service in list
-				next(err, serviceHandlerResponses, currentContext);
-			});
-		};
-	});
-
-	serviceCalls = [];
-
-	// initialize service responses
-	serviceCalls.push(function (next) {
-		next(undefined, [], undefined);
-	});
-
-	// create service calls from map
-	serviceCalls = serviceCalls.concat(callServicesFor(serviceNames));
-
-	finalCallback = function (err, serviceHandlerResponses) {
-		if (err) {
-			log.error("Some service call didn't succeed:", err);
-			// add successfull service responses also to list, this way the
-			// user knows what service calls worked already
-			err = new Error(JSON.stringify(serviceHandlerResponses) + "\n" + err);
-		}
-
-		return callback(err, serviceHandlerResponses);
-	};
-
-	// call each service one after the other
-	async.waterfall(serviceCalls, function (err, serviceHandlerResponses, contextFromServiceCalls) {
-		if (contextFromServiceCalls) {
-			log.error('There is a context from some succeeded service calls, try to save it.');
-			db.document.put(contextFromServiceCalls._id, contextFromServiceCalls, dbHelper.liftDbError(function (putError) {
-				if (putError) {
-					if (!err) {
-						err = "All services ran without errors.";
-					}
-					err += "\nAdditionally there was an error when saving context from service calls!\n:" + putError.toString();
-					finalCallback(err, serviceHandlerResponses);
-				} else {
-					finalCallback(err, serviceHandlerResponses);
-				}
-
-
-			}));
-		} else {
-			finalCallback(err, serviceHandlerResponses);
-		}
-	});
-}
-
 // module
 exports.deactivateContext = function (params, callback) {
 	var projectName, paramsLeet, callServicesOnFinish;
@@ -116,7 +31,7 @@ exports.deactivateContext = function (params, callback) {
 	projectName = params.config.name;
 	paramsLeet = leet(params);
 
-	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onDeactivate', null), params.url, projectName);
+	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onDeactivate', null), db, params.url, projectName);
 
 	async.waterfall([function (next) {
 			dbAbstraction.currentContext(db, projectName, next);
@@ -199,7 +114,7 @@ exports.activateContextWithProperties = function (params, contextProperties, cal
 		return callback(new Error("Can't activate context without a name for it."));
 	}
 
-	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onActivate', null), params.url, projectName);
+	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onActivate', null), db, params.url, projectName);
 
 	async.waterfall([function (next) {
 			dbAbstraction.currentContext(db, projectName, next);
@@ -330,7 +245,7 @@ exports.openContext = function (params, callback) {
 		return callback(new Error("Can't open context without a name for it."));
 	}
 
-	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onOpen', null), params.url, projectName);
+	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onOpen', null), db, params.url, projectName);
 
 	return this._openCloseContext(projectName, name, true, "No closed context to open.", callServicesOnFinish, callback);
 };
@@ -346,7 +261,7 @@ exports.closeContext = function (params, callback) {
 		return callback(new Error("Can't close context without a name for it."));
 	}
 
-	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onClose', null), params.url, projectName);
+	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onClose', null), db, params.url, projectName);
 
 	return this._openCloseContext(projectName, name, false, "No open context to close.", callServicesOnFinish, callback);
 };
