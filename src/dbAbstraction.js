@@ -6,7 +6,7 @@ exports.getContexts = function (db, projectName, name, isActive, isOpen, callbac
 
 	filter = "context.projectName == @projectName";
 	env = {
-		projectName: projectName,
+		projectName: projectName
 	};
 
 	if (name !== undefined) {

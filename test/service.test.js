@@ -10,6 +10,8 @@ var rewire = require('rewire');
 var syncTests = require('./helper/syncTests');
 var testConditions = require('./helper/testConditions');
 
+var dbAbstraction = require('../src/dbAbstraction');
+
 var s = rewire('../src/service');
 
 var baseParams = testConditions.getBaseParams();
@@ -463,7 +465,7 @@ describe('Service method to activate a context for ticket', function () {
 				data.msg.should.equal('success');
 				should.not.exist(data.serviceHandlerResponses);
 
-				s.getContexts(myParams.config.name, 'ticket/42', true, undefined, function (err, result) {
+				dbAbstraction.getContexts(s.__get__('db'), myParams.config.name, 'ticket/42', true, undefined, function (err, result) {
 					var doc;
 
 					if (err) {
@@ -508,7 +510,7 @@ describe('Service method to activate a context for ticket', function () {
 			}
 			data.msg.should.equal('success');
 			should.not.exist(data.serviceHandlerResponses);
-			s.getContexts(myParams.config.name, 'issue/42', true, undefined, function (err, result) {
+			dbAbstraction.getContexts(s.__get__('db'), myParams.config.name, 'issue/42', true, undefined, function (err, result) {
 				var doc;
 
 				if (err) {
@@ -543,7 +545,7 @@ describe('Service method to activate a context for ticket', function () {
 			}
 			data.msg.should.equal('success');
 			should.not.exist(data.serviceHandlerResponses);
-			s.getContexts(myParams.config.name, 'ticket/42', true, undefined, function (err, result) {
+			dbAbstraction.getContexts(s.__get__('db'), myParams.config.name, 'ticket/42', true, undefined, function (err, result) {
 				var doc;
 
 				if (err) {

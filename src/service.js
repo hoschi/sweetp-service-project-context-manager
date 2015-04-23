@@ -5,6 +5,7 @@ var sweetp = require('sweetp-base');
 var leet = require('l33teral');
 var log = require('./log');
 var dbHelper = require('./dbHelper');
+var dbAbstraction = require('./dbAbstraction');
 
 // setup configuration hierarchy: environment, args, defaults
 nconf.env().argv();
@@ -105,61 +106,29 @@ function callServices (serviceNames, url, project, context, callback) {
 		} else {
 			finalCallback(err, serviceHandlerResponses);
 		}
-	}.bind(this));
+	});
 }
 
 // module
-exports.getContexts = function (projectName, name, isActive, isOpen, callback) {
-	var filter, env;
-
-	filter = "context.projectName == @projectName";
-	env = {
-		projectName: projectName,
-		name: name
-	};
-
-	if (name !== undefined) {
-		filter += " && context.name == @name";
-		env.name = name;
-	}
-
-	if (isActive !== undefined) {
-		filter += " && context.isActive == @isActive";
-		env.isActive = isActive;
-	}
-
-	if (isOpen !== undefined) {
-		filter += " && context.isOpen == @isOpen";
-		env.isOpen = isOpen;
-	}
-
-	db.query.for('context').in(dbHelper.contextsCollectionName)
-		.filter(filter)
-		.return('context')
-		.exec(env, function (err, response) {
-			callback(dbHelper.getErrorFromResponse(err, response), response.result);
-		}.bind(this));
-};
-
 exports.deactivateContext = function (params, callback) {
 	var projectName, paramsLeet, callServicesOnFinish;
 
 	projectName = params.config.name;
 	paramsLeet = leet(params);
 
-	callServicesOnFinish = _.partial(callServices.bind(this), paramsLeet.tap('config.projectContextManager.onDeactivate', null), params.url, projectName);
+	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onDeactivate', null), params.url, projectName);
 
 	async.waterfall([function (next) {
-			this._currentContext(params, next);
+			dbAbstraction.currentContext(db, projectName, next);
 		}.bind(this), function (context, next) {
 			if (context) {
 				// update
 				context.isActive = false;
-				this._patchContext(context._id, {
+				db.document.patch(context._id, {
 					isActive: context.isActive
-				}, function (err) {
+				}, dbHelper.liftDbError(function (err) {
 						next(err, context);
-					});
+					}));
 			} else {
 				next(null, null);
 			}
@@ -230,17 +199,17 @@ exports.activateContextWithProperties = function (params, contextProperties, cal
 		return callback(new Error("Can't activate context without a name for it."));
 	}
 
-	callServicesOnFinish = _.partial(callServices.bind(this), paramsLeet.tap('config.projectContextManager.onActivate', null), params.url, projectName);
+	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onActivate', null), params.url, projectName);
 
 	async.waterfall([function (next) {
-			this._currentContext(params, next);
+			dbAbstraction.currentContext(db, projectName, next);
 		}.bind(this), function (context, next) {
 			if (context && context.name !== name) {
 				return next(new Error("Active context detected! You must deactivate it, before activating another context."));
 			}
 
 			// fetch context
-			this.getContexts(projectName, name, undefined, true, function (err, result) {
+			dbAbstraction.getContexts(db, projectName, name, undefined, true, function (err, result) {
 				next(err, _.first(result));
 			});
 		}.bind(this), function (context, next) {
@@ -252,9 +221,9 @@ exports.activateContextWithProperties = function (params, contextProperties, cal
 			if (context) {
 				// update
 				_.assign(context, updatedProperties);
-				this._patchContext(context._id, updatedProperties, function (err, response) {
-					next(dbHelper.getErrorFromResponse(err, response), context);
-				}.bind(this));
+				db.document.patch(context._id, updatedProperties, dbHelper.liftDbError(function (err) {
+					next(err, context);
+				}.bind(this)));
 			} else {
 				// create
 				context = {
@@ -289,30 +258,14 @@ exports.activateContextWithProperties = function (params, contextProperties, cal
 	], callback);
 };
 
-exports._currentContext = function (params, callback) {
-	var projectName;
-
-	projectName = params.config.name;
-
-	this.getContexts(projectName, undefined, true, true, function (err, result) {
-		var context;
-		context = _.first(result);
-		callback(err, context);
-	});
-};
-
 exports.currentContext = function (params, callback) {
-	this._currentContext(params, function (err, context) {
+	dbAbstraction.currentContext(db, params.config.name, function (err, context) {
 		// can't return 'undefined' to sweetp
 		if (!context) {
 			return callback(null, 'no active context');
 		}
 		callback(null, context);
 	});
-};
-
-exports._patchContext = function (id, properties, callback) {
-	db.document.patch(id, properties, dbHelper.liftDbError(callback));
 };
 
 exports.patchContext = function (params, callback) {
@@ -326,23 +279,23 @@ exports.patchContext = function (params, callback) {
 	log.debug("patch context:", params.id, "props:", params.properties);
 	params.properties = JSON.parse(params.properties);
 
-	this._patchContext(params.id, params.properties, callback);
+	db.document.patch(params.id, params.properties, dbHelper.liftDbError(callback));
 };
 
 exports._openCloseContext = function (projectName, contextName, shouldBeOpen, noContextFoundMsg, callServicesOnFinish, callback) {
 	async.waterfall([function (next) {
-			this.getContexts(projectName, contextName, undefined, !shouldBeOpen, function (err, result) {
+			dbAbstraction.getContexts(db, projectName, contextName, undefined, !shouldBeOpen, function (err, result) {
 				next(err, _.first(result));
 			});
 		}.bind(this), function (context, next) {
 			if (context) {
 				// update
 				context.isOpen = shouldBeOpen;
-				this._patchContext(context._id, {
+				db.document.patch(context._id, {
 					isOpen: context.isOpen
-				}, function (err) {
+				}, dbHelper.liftDbError(function (err) {
 						next(err, context);
-					});
+					}));
 			} else {
 				next(null, null);
 			}
@@ -377,7 +330,7 @@ exports.openContext = function (params, callback) {
 		return callback(new Error("Can't open context without a name for it."));
 	}
 
-	callServicesOnFinish = _.partial(callServices.bind(this), paramsLeet.tap('config.projectContextManager.onOpen', null), params.url, projectName);
+	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onOpen', null), params.url, projectName);
 
 	return this._openCloseContext(projectName, name, true, "No closed context to open.", callServicesOnFinish, callback);
 };
@@ -393,7 +346,7 @@ exports.closeContext = function (params, callback) {
 		return callback(new Error("Can't close context without a name for it."));
 	}
 
-	callServicesOnFinish = _.partial(callServices.bind(this), paramsLeet.tap('config.projectContextManager.onClose', null), params.url, projectName);
+	callServicesOnFinish = _.partial(callServices, paramsLeet.tap('config.projectContextManager.onClose', null), params.url, projectName);
 
 	return this._openCloseContext(projectName, name, false, "No open context to close.", callServicesOnFinish, callback);
 };
