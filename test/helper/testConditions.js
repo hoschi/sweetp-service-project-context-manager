@@ -1,5 +1,10 @@
 var _ = require('lodash');
 var arango = require('arangojs');
+var async = require('async');
+var should = require('chai').should();
+var R = require('ramda');
+
+var dbHelper = require('../../src/dbHelper');
 
 exports.testDbName = 'sweetpUnittest';
 exports.testDbUrl = 'http://localhost:8529/';
@@ -48,3 +53,18 @@ exports.recreateDb = function (done) {
 			}.bind(this));
 	}.bind(this));
 };
+
+exports.deleteAllContexts = function (callback) {
+	var db;
+	db = this.getDb();
+	db.simple.list(dbHelper.contextsCollectionName, function (err, response) {
+		should.not.exist(err);
+
+		// delete them
+		async.each(response.result.map(R.prop('_id')), db.document.delete, function (err) {
+			should.not.exist(err);
+			callback();
+		});
+	});
+};
+

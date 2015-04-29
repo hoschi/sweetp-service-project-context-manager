@@ -17,20 +17,6 @@ var s = rewire('../src/service');
 var baseParams = testConditions.getBaseParams();
 testConditions.configureService(s);
 
-function deleteAllContexts (callback) {
-	var db;
-	db = s.__get__('db');
-	db.simple.list(s.__get__('dbHelper').contextsCollectionName, function (err, response) {
-		should.not.exist(err);
-
-		// delete them
-		async.each(response.result.map(R.prop('_id')), db.document.delete, function (err) {
-			should.not.exist(err);
-			callback();
-		});
-	});
-}
-
 function mockServiceCallWithContext (params, serviceName) {
 	return nock(params.url)
 		.filteringPath(function (path) {
@@ -103,7 +89,7 @@ describe('Service method to activate a context', function () {
 	});
 
 	afterEach(function (done) {
-		deleteAllContexts(function () {
+		testConditions.deleteAllContexts(function () {
 			nock.cleanAll();
 			syncTests.stop();
 			done();
@@ -431,7 +417,7 @@ describe('Service method to activate a context for ticket', function () {
 	});
 
 	afterEach(function (done) {
-		deleteAllContexts(function () {
+		testConditions.deleteAllContexts(function () {
 			nock.cleanAll();
 			syncTests.stop();
 			done();
@@ -578,7 +564,7 @@ describe('Service method to deactivate a context', function () {
 	});
 
 	afterEach(function (done) {
-		deleteAllContexts(function () {
+		testConditions.deleteAllContexts(function () {
 			nock.cleanAll();
 			syncTests.stop();
 			done();
@@ -768,7 +754,7 @@ before(function (done) {
 	});
 
 	afterEach(function (done) {
-		deleteAllContexts(function () {
+		testConditions.deleteAllContexts(function () {
 			nock.cleanAll();
 			syncTests.stop();
 			done();
@@ -837,7 +823,7 @@ describe('Service method to patch existing context', function () {
 	});
 
 	afterEach(function (done) {
-		deleteAllContexts(function () {
+		testConditions.deleteAllContexts(function () {
 			nock.cleanAll();
 			syncTests.stop();
 			done();
@@ -926,7 +912,7 @@ describe('Service method to open a context', function () {
 	});
 
 	afterEach(function (done) {
-		deleteAllContexts(function () {
+		testConditions.deleteAllContexts(function () {
 			nock.cleanAll();
 			syncTests.stop();
 			done();
@@ -974,7 +960,7 @@ describe('Service method to open a context', function () {
 							context.isOpen.should.equal(true);
 							context.name.should.equal(contextName);
 
-							deleteAllContexts(done);
+							testConditions.deleteAllContexts(done);
 						});
 				});
 			});
@@ -1014,7 +1000,7 @@ describe('Service method to open a context', function () {
 							context.isOpen.should.equal(true);
 							context.name.should.equal(contextName);
 
-							deleteAllContexts(done);
+							testConditions.deleteAllContexts(done);
 						});
 				});
 			});
@@ -1082,7 +1068,7 @@ describe('Service method to open a context', function () {
 							scope.isDone().should.equal(true);
 						}
 
-						deleteAllContexts(done);
+						testConditions.deleteAllContexts(done);
 					});
 			});
 	});
@@ -1145,7 +1131,7 @@ describe('Service method to open a context', function () {
 							scope.isDone().should.equal(true);
 						}
 
-						deleteAllContexts(done);
+						testConditions.deleteAllContexts(done);
 					});
 			});
 	});
@@ -1198,7 +1184,7 @@ describe('Service method to open a context', function () {
 								scope.isDone().should.equal(true);
 							}
 						});
-						deleteAllContexts(done);
+						testConditions.deleteAllContexts(done);
 					});
 			});
 	});
@@ -1259,7 +1245,7 @@ describe('Service method to open a context', function () {
 						});
 						mock.verify();
 						mock.restore();
-						deleteAllContexts(done);
+						testConditions.deleteAllContexts(done);
 					});
 			});
 	});
@@ -1277,7 +1263,7 @@ describe('Service method to close a context', function () {
 	});
 
 	afterEach(function (done) {
-		deleteAllContexts(function () {
+		testConditions.deleteAllContexts(function () {
 			nock.cleanAll();
 			syncTests.stop();
 			done();
@@ -1325,7 +1311,7 @@ describe('Service method to close a context', function () {
 							context.isOpen.should.equal(false);
 							context.name.should.equal(contextName);
 
-							deleteAllContexts(done);
+							testConditions.deleteAllContexts(done);
 						});
 				});
 			});
@@ -1365,7 +1351,7 @@ describe('Service method to close a context', function () {
 							context.isOpen.should.equal(false);
 							context.name.should.equal(contextName);
 
-							deleteAllContexts(done);
+							testConditions.deleteAllContexts(done);
 						});
 				});
 			});
@@ -1433,7 +1419,7 @@ describe('Service method to close a context', function () {
 							scope.isDone().should.equal(true);
 						}
 
-						deleteAllContexts(done);
+						testConditions.deleteAllContexts(done);
 					});
 			});
 	});
@@ -1496,7 +1482,7 @@ describe('Service method to close a context', function () {
 							scope.isDone().should.equal(true);
 						}
 
-						deleteAllContexts(done);
+						testConditions.deleteAllContexts(done);
 					});
 			});
 	});
@@ -1549,7 +1535,7 @@ describe('Service method to close a context', function () {
 								scope.isDone().should.equal(true);
 							}
 						});
-						deleteAllContexts(done);
+						testConditions.deleteAllContexts(done);
 					});
 			});
 	});
@@ -1610,7 +1596,7 @@ describe('Service method to close a context', function () {
 						});
 						mock.verify();
 						mock.restore();
-						deleteAllContexts(done);
+						testConditions.deleteAllContexts(done);
 					});
 			});
 	});
