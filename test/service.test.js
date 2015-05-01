@@ -4,11 +4,11 @@ var sinon = require('sinon');
 var async = require('async');
 var R = require('ramda');
 var nock = require('nock');
-var url = require('url');
 var rewire = require('rewire');
 
 var syncTests = require('./helper/syncTests');
 var testConditions = require('./helper/testConditions');
+var serviceCallsMocker = require('./helper/mockServiceCalls');
 
 var dbAbstraction = require('../src/dbAbstraction');
 
@@ -16,66 +16,6 @@ var s = rewire('../src/service');
 
 var baseParams = testConditions.getBaseParams();
 testConditions.configureService(s);
-
-function mockServiceCallWithContext (params, serviceName) {
-	return nock(params.url)
-		.filteringPath(function (path) {
-			// mock stringified context to short version
-			var parsed, context, shortContext;
-
-			parsed = url.parse(path, true);
-			context = JSON.parse(parsed.query.context);
-
-			if (!context || !context.name) {
-				return path;
-			}
-
-			// assertions for context
-			should.exist(context._id, "Supplied context should have an id for manuplating it.");
-
-			shortContext = "context={name:" + context.name + "}";
-			return parsed.pathname + "?" + shortContext;
-		})
-		.get('/services/' + params.config.name + '/' + serviceName + '?context={name:my-context}');
-}
-
-function mockServiceCallWithContextAndSucceed (params, serviceName) {
-	return mockServiceCallWithContext(params, serviceName)
-		.reply(200, {
-			service: {
-				msg: serviceName + " reply",
-				// each service call gives a context back, which has
-				// another foo property value.
-				context: {
-					_id: 'no-id',
-					name: 'my-context',
-					foo: serviceName + " context prop"
-				}
-			}
-		});
-}
-
-function mockServiceCallWithContextAndFail (params, serviceName, failAt, index) {
-	var scope;
-
-	scope = mockServiceCallWithContext(params, serviceName);
-
-	if (index === failAt) {
-		scope.reply(500, {
-			service: {
-				msg: "wahhhh"
-			}
-		});
-	} else {
-		scope.reply(200, {
-			service: {
-				msg: serviceName + " reply"
-			}
-		});
-	}
-
-	return scope;
-}
 
 describe('Service method to activate a context', function () {
 	var params;
@@ -209,7 +149,7 @@ describe('Service method to activate a context', function () {
 		// create mock for each service (call)
 		services.forEach(function (serviceName) {
 			var scope;
-			scope = mockServiceCallWithContextAndSucceed(params, serviceName);
+			scope = serviceCallsMocker.mockWithContextAndSucceed(params, serviceName);
 			mockScopes.push(scope);
 		});
 
@@ -264,7 +204,7 @@ describe('Service method to activate a context', function () {
 		// create mock for each service (call)
 		services.forEach(function (serviceName) {
 			var scope;
-			scope = mockServiceCallWithContextAndSucceed(params, serviceName);
+			scope = serviceCallsMocker.mockWithContextAndSucceed(params, serviceName);
 			mockScopes.push(scope);
 		});
 
@@ -314,7 +254,7 @@ describe('Service method to activate a context', function () {
 		// create mock for each service (call)
 		services.forEach(function (serviceName, index) {
 			var scope;
-			scope = mockServiceCallWithContextAndFail(params, serviceName, 1, index);
+			scope = serviceCallsMocker.mockWithContextAndFail(params, serviceName, 1, index);
 			mockScopes.push(scope);
 		});
 
@@ -354,7 +294,7 @@ describe('Service method to activate a context', function () {
 		// create mock for each service (call)
 		services.forEach(function (serviceName, index) {
 			var scope;
-			scope = mockServiceCallWithContextAndFail(params, serviceName, 1, index);
+			scope = serviceCallsMocker.mockWithContextAndFail(params, serviceName, 1, index);
 			mockScopes.push(scope);
 		});
 
@@ -649,7 +589,7 @@ describe('Service method to deactivate a context', function () {
 				// create mock for each service (call)
 				services.forEach(function (serviceName) {
 					var scope;
-					scope = mockServiceCallWithContextAndSucceed(params, serviceName);
+					scope = serviceCallsMocker.mockWithContextAndSucceed(params, serviceName);
 					mockScopes.push(scope);
 				});
 
@@ -707,7 +647,7 @@ describe('Service method to deactivate a context', function () {
 				// create mock for each service (call)
 				services.forEach(function (serviceName, index) {
 					var scope;
-					scope = mockServiceCallWithContextAndFail(params, serviceName, 1, index);
+					scope = serviceCallsMocker.mockWithContextAndFail(params, serviceName, 1, index);
 
 					mockScopes.push(scope);
 				});
@@ -1021,7 +961,7 @@ describe('Service method to open a context', function () {
 		// create mock for each service (call)
 		services.forEach(function (serviceName) {
 			var scope;
-			scope = mockServiceCallWithContextAndSucceed(params, serviceName);
+			scope = serviceCallsMocker.mockWithContextAndSucceed(params, serviceName);
 			mockScopes.push(scope);
 		});
 
@@ -1088,7 +1028,7 @@ describe('Service method to open a context', function () {
 		// create mock for each service (call)
 		services.forEach(function (serviceName) {
 			var scope;
-			scope = mockServiceCallWithContextAndSucceed(params, serviceName);
+			scope = serviceCallsMocker.mockWithContextAndSucceed(params, serviceName);
 			mockScopes.push(scope);
 		});
 
@@ -1151,7 +1091,7 @@ describe('Service method to open a context', function () {
 		// create mock for each service (call)
 		services.forEach(function (serviceName, index) {
 			var scope;
-			scope = mockServiceCallWithContextAndFail(params, serviceName, 1, index);
+			scope = serviceCallsMocker.mockWithContextAndFail(params, serviceName, 1, index);
 			mockScopes.push(scope);
 		});
 
@@ -1204,7 +1144,7 @@ describe('Service method to open a context', function () {
 		// create mock for each service (call)
 		services.forEach(function (serviceName, index) {
 			var scope;
-			scope = mockServiceCallWithContextAndFail(params, serviceName, 1, index);
+			scope = serviceCallsMocker.mockWithContextAndFail(params, serviceName, 1, index);
 			mockScopes.push(scope);
 		});
 
@@ -1372,7 +1312,7 @@ describe('Service method to close a context', function () {
 		// create mock for each service (call)
 		services.forEach(function (serviceName) {
 			var scope;
-			scope = mockServiceCallWithContextAndSucceed(params, serviceName);
+			scope = serviceCallsMocker.mockWithContextAndSucceed(params, serviceName);
 			mockScopes.push(scope);
 		});
 
@@ -1439,7 +1379,7 @@ describe('Service method to close a context', function () {
 		// create mock for each service (call)
 		services.forEach(function (serviceName) {
 			var scope;
-			scope = mockServiceCallWithContextAndSucceed(params, serviceName);
+			scope = serviceCallsMocker.mockWithContextAndSucceed(params, serviceName);
 			mockScopes.push(scope);
 		});
 
@@ -1502,7 +1442,7 @@ describe('Service method to close a context', function () {
 		// create mock for each service (call)
 		services.forEach(function (serviceName, index) {
 			var scope;
-			scope = mockServiceCallWithContextAndFail(params, serviceName, 1, index);
+			scope = serviceCallsMocker.mockWithContextAndFail(params, serviceName, 1, index);
 			mockScopes.push(scope);
 		});
 
@@ -1555,7 +1495,7 @@ describe('Service method to close a context', function () {
 		// create mock for each service (call)
 		services.forEach(function (serviceName, index) {
 			var scope;
-			scope = mockServiceCallWithContextAndFail(params, serviceName, 1, index);
+			scope = serviceCallsMocker.mockWithContextAndFail(params, serviceName, 1, index);
 			mockScopes.push(scope);
 		});
 
