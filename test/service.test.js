@@ -11,6 +11,7 @@ var testConditions = require('./helper/testConditions');
 var serviceCallsMocker = require('./helper/mockServiceCalls');
 
 var dbAbstraction = require('../src/dbAbstraction');
+var dbHelper = require('../src/dbHelper');
 
 var s = rewire('../src/service');
 
@@ -47,7 +48,7 @@ describe('Service method to activate a context', function () {
 		var db;
 		db = s.__get__('db');
 		// fetch all existing contexts
-		db.simple.example(s.__get__('dbHelper').contextsCollectionName, {
+		db.simple.example(dbHelper.contextsCollectionName, {
 			name: 'my-context'
 		}, function (err, response) {
 				should.not.exist(err);
@@ -78,7 +79,7 @@ describe('Service method to activate a context', function () {
 		var db;
 		db = s.__get__('db');
 		// fetch all existing contexts
-		db.simple.example(s.__get__('dbHelper').contextsCollectionName, {
+		db.simple.example(dbHelper.contextsCollectionName, {
 			name: 'my-context'
 		}, function (err, response) {
 				should.not.exist(err);
@@ -86,7 +87,7 @@ describe('Service method to activate a context', function () {
 				async.each(response.result.map(R.prop('_id')), db.document.delete, function (err) {
 					should.not.exist(err);
 					// create our not active test context
-					db.document.create(s.__get__('dbHelper').contextsCollectionName, {
+					db.document.create(dbHelper.contextsCollectionName, {
 						name: 'my-context',
 						projectName: baseParams.config.name,
 						isActive: false
@@ -514,7 +515,7 @@ describe('Service method to deactivate a context', function () {
 
 	it('should return deactivated context.', function (done) {
 		// create context we can deactivate
-		s.__get__('db').document.create(s.__get__('dbHelper').contextsCollectionName, {
+		s.__get__('db').document.create(dbHelper.contextsCollectionName, {
 			isActive: true,
 			name: 'my-active-context',
 			isOpen: true,
@@ -732,7 +733,7 @@ before(function (done) {
 
 		contextName = 'test';
 		db = s.__get__('db');
-		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
+		db.document.create(dbHelper.contextsCollectionName, {
 			isActive: true,
 			isOpen: true,
 			name: contextName,
@@ -791,7 +792,7 @@ describe('Service method to patch existing context', function () {
 	});
 
 	it('returns patched context response when successfull.', function (done) {
-		s.__get__('db').document.create(s.__get__('dbHelper').contextsCollectionName, {
+		s.__get__('db').document.create(dbHelper.contextsCollectionName, {
 			isActive: true,
 			name: 'my-active-context',
 			projectName: 'test'
@@ -872,7 +873,7 @@ describe('Service method to open a context', function () {
 		contextName = 'my-context';
 		db = s.__get__('db');
 
-		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
+		db.document.create(dbHelper.contextsCollectionName, {
 			isActive: false,
 			isOpen: false,
 			name: contextName,
@@ -890,7 +891,7 @@ describe('Service method to open a context', function () {
 					should.not.exist(data.serviceHandlerResponses);
 
 					// check properties
-					db.simple.example(s.__get__('dbHelper').contextsCollectionName, {
+					db.simple.example(dbHelper.contextsCollectionName, {
 						name: contextName
 					}, function (err, response) {
 							var context;
@@ -912,7 +913,7 @@ describe('Service method to open a context', function () {
 		contextName = 'my-context';
 		db = s.__get__('db');
 
-		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
+		db.document.create(dbHelper.contextsCollectionName, {
 			isActive: false,
 			isOpen: true,
 			name: contextName,
@@ -930,7 +931,7 @@ describe('Service method to open a context', function () {
 					should.not.exist(data.serviceHandlerResponses);
 
 					// check properties
-					db.simple.example(s.__get__('dbHelper').contextsCollectionName, {
+					db.simple.example(dbHelper.contextsCollectionName, {
 						name: contextName
 					}, function (err, response) {
 							var context;
@@ -980,7 +981,7 @@ describe('Service method to open a context', function () {
 		};
 
 		db = s.__get__('db');
-		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
+		db.document.create(dbHelper.contextsCollectionName, {
 			isActive: false,
 			isOpen: false,
 			name: contextName,
@@ -1042,7 +1043,7 @@ describe('Service method to open a context', function () {
 		};
 
 		db = s.__get__('db');
-		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
+		db.document.create(dbHelper.contextsCollectionName, {
 			isActive: false,
 			isOpen: false,
 			name: contextName,
@@ -1101,7 +1102,7 @@ describe('Service method to open a context', function () {
 		};
 
 		db = s.__get__('db');
-		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
+		db.document.create(dbHelper.contextsCollectionName, {
 			isActive: false,
 			isOpen: false,
 			name: contextName,
@@ -1154,7 +1155,7 @@ describe('Service method to open a context', function () {
 		};
 
 		db = s.__get__('db');
-		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
+		db.document.create(dbHelper.contextsCollectionName, {
 			isActive: false,
 			isOpen: false,
 			name: contextName,
@@ -1223,7 +1224,7 @@ describe('Service method to close a context', function () {
 		contextName = 'my-context';
 		db = s.__get__('db');
 
-		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
+		db.document.create(dbHelper.contextsCollectionName, {
 			isActive: false,
 			isOpen: true,
 			name: contextName,
@@ -1241,7 +1242,7 @@ describe('Service method to close a context', function () {
 					should.not.exist(data.serviceHandlerResponses);
 
 					// check properties
-					db.simple.example(s.__get__('dbHelper').contextsCollectionName, {
+					db.simple.example(dbHelper.contextsCollectionName, {
 						name: contextName
 					}, function (err, response) {
 							var context;
@@ -1263,7 +1264,7 @@ describe('Service method to close a context', function () {
 		contextName = 'my-context';
 		db = s.__get__('db');
 
-		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
+		db.document.create(dbHelper.contextsCollectionName, {
 			isActive: false,
 			isOpen: false,
 			name: contextName,
@@ -1281,7 +1282,7 @@ describe('Service method to close a context', function () {
 					should.not.exist(data.serviceHandlerResponses);
 
 					// check properties
-					db.simple.example(s.__get__('dbHelper').contextsCollectionName, {
+					db.simple.example(dbHelper.contextsCollectionName, {
 						name: contextName
 					}, function (err, response) {
 							var context;
@@ -1331,7 +1332,7 @@ describe('Service method to close a context', function () {
 		};
 
 		db = s.__get__('db');
-		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
+		db.document.create(dbHelper.contextsCollectionName, {
 			isActive: false,
 			isOpen: true,
 			name: contextName,
@@ -1393,7 +1394,7 @@ describe('Service method to close a context', function () {
 		};
 
 		db = s.__get__('db');
-		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
+		db.document.create(dbHelper.contextsCollectionName, {
 			isActive: false,
 			isOpen: true,
 			name: contextName,
@@ -1452,7 +1453,7 @@ describe('Service method to close a context', function () {
 		};
 
 		db = s.__get__('db');
-		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
+		db.document.create(dbHelper.contextsCollectionName, {
 			isActive: false,
 			isOpen: true,
 			name: contextName,
@@ -1505,7 +1506,7 @@ describe('Service method to close a context', function () {
 		};
 
 		db = s.__get__('db');
-		db.document.create(s.__get__('dbHelper').contextsCollectionName, {
+		db.document.create(dbHelper.contextsCollectionName, {
 			isActive: false,
 			isOpen: true,
 			name: contextName,
