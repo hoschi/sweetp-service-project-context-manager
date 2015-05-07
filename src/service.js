@@ -99,7 +99,7 @@ exports.activateContextForTicket = function (params, callback) {
 	this.activateContextWithProperties(params, contextProperties, callback);
 };
 
-exports.activateContext = paramAssertions.needsContextNameInParams('activate', function (params, callback) {
+exports.activateContext = paramAssertions.needsContextNameInParams('activate', function activateContext (params, callback) {
 	return this.activateContextWithProperties(params, undefined, callback);
 });
 
@@ -179,7 +179,7 @@ exports.currentContext = function (params, callback) {
 	});
 };
 
-exports.patchContext = paramAssertions.patchContextAssertions(function (params, callback) {
+exports.patchContext = paramAssertions.patchContextAssertions(function patchContext (params, callback) {
 	log.debug("patch context:", params.id, "props:", params.properties);
 	params.properties = JSON.parse(params.properties);
 
@@ -231,10 +231,10 @@ exports._openCloseContext = function (params, shouldBeOpen, eventHandlerProperty
 
 };
 
-exports.openContext = paramAssertions.needsContextNameInParams('open', function (params, callback) {
+exports.openContext = paramAssertions.needsContextNameInParams('open', function openContext (params, callback) {
 	return this._openCloseContext(params, true, 'onOpen', "No closed context to open.", callback);
 });
 
-exports.closeContext = paramAssertions.needsContextNameInParams('close', function (params, callback) {
+exports.closeContext = paramAssertions.needsContextNameInParams('close', function closeContext (params, callback) {
 	return this._openCloseContext(params, false, 'onClose', "No open context to close.", callback);
 });
