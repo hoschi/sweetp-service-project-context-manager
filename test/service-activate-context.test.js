@@ -66,6 +66,7 @@ describe('Service method to activate a context', function () {
 							s.currentContext(params, function (err, data) {
 								should.not.exist(err);
 								data.isActive.should.equal(true);
+								data.isOpen.should.equal(true);
 								data.name.should.equal('my-context');
 								done();
 							});
@@ -106,6 +107,7 @@ describe('Service method to activate a context', function () {
 									s.currentContext(params, function (err, data) {
 										should.not.exist(err);
 										data.isActive.should.equal(true);
+										data.isOpen.should.equal(true);
 										data.name.should.equal('my-context');
 										done();
 									});
